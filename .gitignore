@@ -1,0 +1,14 @@
+.DS_Store
+.idea/
+.vscode/
+build/
+dist/
+coverage/
+*.log
+*.pem
+*.key
+*.p12
+*.mobileprovision
+.env
+.env.*
+
