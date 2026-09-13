@@ -32,7 +32,9 @@ Canvas documentation states that quiz logs are intended to investigate quiz prob
 - [Project charter](docs/PROJECT_CHARTER.md)
 - [Research and platform-selection plan](docs/research/RESEARCH_PLAN.md)
 - [Existing Canvas tools, telemetry, and network-controls research](docs/research/canvas-tools-telemetry-and-network-controls.md)
-- [Platform decision record — pending](docs/adr/0001-platform-selection.md)
+- [Platform and reuse deep dive](docs/research/platform-and-reuse-deep-dive.md)
+- [Upstream reuse and licensing matrix](docs/research/reuse-matrix.md)
+- [Platform decision record](docs/adr/0001-platform-selection.md)
 - [Development roadmap](docs/ROADMAP.md)
 - [Security policy](SECURITY.md)
 
@@ -49,4 +51,3 @@ Copyright © 2026 Rolando Carreon. All rights reserved.
 The project is publicly readable and licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). Personal, educational, public-research, and other permitted noncommercial use and modification are allowed under those terms. Commercial use is not licensed.
 
 Because the license restricts commercial use, this project is accurately described as **source-available**, not OSI-approved open-source software.
-
