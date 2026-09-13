@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "observedTimeBucket": "2026-01-01T12:00:00Z",
+  "browserFamily": "synthetic",
+  "destinationClass": "separate_third_party",
+  "pathClass": "optional_candidate",
+  "resourceType": "beacon",
+  "methodClass": "state_changing",
+  "initiatorRelation": "enrolled_top_level",
+  "eventClass": "optional_separable",
+  "lifecycleState": "ACTIVE_OBSERVE",
+  "networkAction": "ALLOW",
+  "observationAction": "REDACTED_RECORD",
+  "reasonCode": "SYNTHETIC_OPTIONAL_CANDIDATE",
+  "classifierRevision": "gate1.synthetic.v1",
+  "retentionExpiresAtBucket": "2026-01-02T12:00:00Z"
+}

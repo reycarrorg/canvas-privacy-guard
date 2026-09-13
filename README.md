@@ -4,9 +4,9 @@ Canvas Privacy Guard is a public, research-first project for understanding and r
 
 ## Project status
 
-**Research gate — no production privacy enforcement has been released.**
+**Gate 1 contract review — no browser extension or production privacy enforcement has been released.**
 
-The project is currently comparing implementation platforms and reviewing existing open-source components that may provide safe, maintainable building blocks. Development of traffic-altering behavior is blocked until the platform decision, threat model, licensing review, and integrity boundaries are documented and accepted.
+Research Gate 0 selected a cross-browser WebExtension architecture. Gate 1 now provides a threat model and deterministic behavior/privacy contracts for review. Gate 1 contains no extension scaffold or runtime behavior, Gate 2 remains observation-only, and development of traffic-altering behavior remains blocked by the separate authorization boundary in ADR 0002.
 
 ## Intended outcome
 
@@ -35,6 +35,15 @@ Canvas documentation states that quiz logs are intended to investigate quiz prob
 - [Platform and reuse deep dive](docs/research/platform-and-reuse-deep-dive.md)
 - [Upstream reuse and licensing matrix](docs/research/reuse-matrix.md)
 - [Platform decision record](docs/adr/0001-platform-selection.md)
+- [Repository threat model](docs/security/THREAT_MODEL.md)
+- [Data-flow specification](docs/architecture/DATA_FLOW.md)
+- [Event-classification contract](docs/contracts/EVENT_CLASSIFICATION.md)
+- [Activation state-machine contract](docs/contracts/ACTIVATION_STATE_MACHINE.md)
+- [Redacted metadata and retention contract](docs/contracts/METADATA_AND_RETENTION.md)
+- [Machine-checkable metadata schema](docs/contracts/metadata-record.schema.json)
+- [Gate 1 invariants](docs/contracts/invariants.json)
+- [Gate 1 acceptance plan](docs/testing/GATE_1_ACCEPTANCE_PLAN.md)
+- [Enforcement authorization boundary](docs/adr/0002-enforcement-authorization-boundary.md)
 - [Development roadmap](docs/ROADMAP.md)
 - [Security policy](SECURITY.md)
 

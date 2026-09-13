@@ -22,3 +22,8 @@ Contributions must not:
 
 Testing must use synthetic fixtures, a self-owned Canvas environment, or an explicitly authorized institutional sandbox. Never include live student data in fixtures or bug reports.
 
+## Design contracts
+
+The current repository-wide model and enforceable design boundaries are documented in the [threat model](docs/security/THREAT_MODEL.md), [event-classification contract](docs/contracts/EVENT_CLASSIFICATION.md), [redacted metadata contract](docs/contracts/METADATA_AND_RETENTION.md), and [enforcement authorization ADR](docs/adr/0002-enforcement-authorization-boundary.md).
+
+Gate 1 has no runtime implementation. Gate 2 is observation-only and must allow all traffic. A classifier label, passing test, browser permission, or merged change does not authorize use on a real Canvas account, course, student dataset, or graded assessment.
