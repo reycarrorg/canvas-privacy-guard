@@ -14,11 +14,12 @@ Exit evidence: cited report, reuse matrix, selected platform, documented rejecte
 
 ## Gate 1 — Threat model and contracts
 
-- Map data flows and trust boundaries.
-- Define optional, essential, assessment, security, and unknown event classes.
-- Specify local storage and redaction rules.
-- Specify fail-safe behavior and emergency disablement.
-- Define acceptance tests before implementation.
+- [x] Map data flows and trust boundaries in the [repository threat model](security/THREAT_MODEL.md) and [data-flow specification](architecture/DATA_FLOW.md).
+- [x] Define essential, assessment, authentication/SSO, autosave/submission, security, optional-separable, and unknown classes in the [event-classification contract](contracts/EVENT_CLASSIFICATION.md).
+- [x] Specify local storage, forbidden fields, redaction, retention, and deletion in the [metadata contract](contracts/METADATA_AND_RETENTION.md) and [JSON Schema](contracts/metadata-record.schema.json).
+- [x] Specify fail-safe lifecycle behavior and emergency disablement in the [activation state machine](contracts/ACTIVATION_STATE_MACHINE.md).
+- [x] Map every machine-readable invariant to deterministic tests in the [Gate 1 acceptance plan](testing/GATE_1_ACCEPTANCE_PLAN.md).
+- [x] Define the future rule boundary in [ADR 0002](adr/0002-enforcement-authorization-boundary.md).
 
 Entry constraints from Gate 0:
 
@@ -28,9 +29,11 @@ Entry constraints from Gate 0:
 - collect no bodies, credentials, answers, grades, course content, or student identifiers;
 - preserve PolyForm Noncommercial licensing and complete a file-level review before adding any dependency.
 
-Exit evidence: reviewed threat model, event-classification contract, and executable test plan.
+Exit evidence: threat model, data flow, classifier, metadata schema, lifecycle contract, enforcement-boundary ADR, and executable contract checks are complete for review on the Gate 1 branch. Gate 1 is not accepted until that review is merged to `main`. No extension, runtime observation, enforcement, installation, Canvas login, or live test is included.
 
 ## Gate 2 — Observation prototype
+
+Entry is blocked until Gate 1 is accepted on `main` and the exact criteria in the [Gate 1 acceptance plan](testing/GATE_1_ACCEPTANCE_PLAN.md#gate-1-exit-and-exact-gate-2-entry-criteria) are satisfied.
 
 - Implement Canvas-only activation and deactivation.
 - Show local state and classified destinations without modifying traffic.

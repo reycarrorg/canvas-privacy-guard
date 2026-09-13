@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "gate": "Gate 1",
+  "baseline": "e8f79a794e41a5042e817feeb29ed98f00638d72",
+  "invariants": [
+    {
+      "id": "INV-001",
+      "statement": "Gate 1 contains no runtime implementation and Gate 2 can emit ALLOW only.",
+      "tests": ["T-STATIC-01", "T-SCHEMA-01", "T-REDUCER-01"]
+    },
+    {
+      "id": "INV-002",
+      "statement": "Only exact user-enrolled HTTPS Canvas origins can become recognized surfaces; wildcards and all-URL access are rejected.",
+      "tests": ["T-REDUCER-02", "T-ADAPTER-01", "T-MANIFEST-01"]
+    },
+    {
+      "id": "INV-003",
+      "statement": "Cookies, headers, bodies, queries, fragments, credentials, authorization material, answers, grades, course content, student identifiers, and full browsing history are never captured or persisted.",
+      "tests": ["T-SCHEMA-02", "T-ADAPTER-02", "T-PRIVACY-01"]
+    },
+    {
+      "id": "INV-004",
+      "statement": "Unknown, inconsistent, stale, or conflicting inputs always allow traffic and disable future enforcement.",
+      "tests": ["T-CLASSIFIER-01", "T-REDUCER-03", "T-FAULT-01"]
+    },
+    {
+      "id": "INV-005",
+      "statement": "A suspected or unknown assessment surface dominates every tab and window in its browser context and suspends request observation.",
+      "tests": ["T-REDUCER-04", "T-MULTI-01", "T-ASSESS-01"]
+    },
+    {
+      "id": "INV-006",
+      "statement": "Essential, assessment, authentication or SSO, autosave or submission, security, same-origin batched, and unknown traffic are never altered.",
+      "tests": ["T-CLASSIFIER-02", "T-EQUIV-01", "T-EQUIV-02"]
+    },
+    {
+      "id": "INV-007",
+      "statement": "Private browsing is inactive at the product layer in Gate 2 and produces no persistent state or records.",
+      "tests": ["T-PRIVATE-01", "T-PRIVATE-02"]
+    },
+    {
+      "id": "INV-008",
+      "statement": "Startup, update, restart, and service-worker wake reconstruct state from current permissions and tabs before observation becomes active.",
+      "tests": ["T-RESTART-01", "T-RESTART-02"]
+    },
+    {
+      "id": "INV-009",
+      "statement": "Emergency disable immediately stops observation, clears volatile state, and requires explicit user re-enable.",
+      "tests": ["T-DISABLE-01", "T-DISABLE-02"]
+    },
+    {
+      "id": "INV-010",
+      "statement": "The product has no telemetry, remote diagnostics, cloud sync, accounts, remote rules, or remote code.",
+      "tests": ["T-STATIC-02", "T-NETWORK-01"]
+    },
+    {
+      "id": "INV-011",
+      "statement": "SSO transit never broadens permissions, observes identity-provider traffic, records URLs, or implies successful authentication.",
+      "tests": ["T-SSO-01", "T-SSO-02"]
+    },
+    {
+      "id": "INV-012",
+      "statement": "Tab and window membership is reference-counted per browser context; removal of one surface cannot deactivate another.",
+      "tests": ["T-MULTI-02", "T-MULTI-03"]
+    },
+    {
+      "id": "INV-013",
+      "statement": "Same-origin, payload-dependent, or batched traffic cannot be classified as optional-separable.",
+      "tests": ["T-CLASSIFIER-03", "T-CLASSIFIER-04"]
+    },
+    {
+      "id": "INV-014",
+      "statement": "Permission loss or mismatch stops observation and clears any future session rules before another state is shown.",
+      "tests": ["T-PERMISSION-01", "T-FAULT-02"]
+    },
+    {
+      "id": "INV-015",
+      "statement": "Persistent records are local, capped at 500, time-bucketed, deleted within 24 hours, and user-deletable immediately.",
+      "tests": ["T-SCHEMA-03", "T-RETENTION-01", "T-RETENTION-02"]
+    },
+    {
+      "id": "INV-016",
+      "statement": "The reducer is pure, deterministic, idempotent for equivalent snapshots, and independent of event delivery order after reconciliation.",
+      "tests": ["T-REDUCER-05", "T-REDUCER-06"]
+    },
+    {
+      "id": "INV-017",
+      "statement": "A future rule cannot be enforced without a separately accepted rule authorization record and Gate 3 implementation evidence.",
+      "tests": ["T-AUTHZ-01", "T-AUTHZ-02"]
+    },
+    {
+      "id": "INV-018",
+      "statement": "Every dependency and copied file requires provenance and file-level license review; GPL, AGPL, or MPL implementation code is not copied into PolyForm-only files.",
+      "tests": ["T-SUPPLY-01", "T-LICENSE-01"]
+    }
+  ]
+}

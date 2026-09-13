@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/reycarrorg/canvas-privacy-guard/blob/main/docs/contracts/metadata-record.schema.json",
+  "title": "Canvas Privacy Guard redacted observation record",
+  "description": "The complete persistable Gate 2 request-observation record. Raw browser URLs and identifiers must be reduced to these categories before this object is created.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "observedTimeBucket",
+    "browserFamily",
+    "destinationClass",
+    "pathClass",
+    "resourceType",
+    "methodClass",
+    "initiatorRelation",
+    "eventClass",
+    "lifecycleState",
+    "networkAction",
+    "observationAction",
+    "reasonCode",
+    "classifierRevision",
+    "retentionExpiresAtBucket"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "observedTimeBucket": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:(00|15|30|45):00Z$",
+      "description": "UTC time rounded down to a 15-minute boundary. Seconds must be 00."
+    },
+    "browserFamily": {
+      "type": "string",
+      "enum": ["firefox", "chromium", "safari", "synthetic"]
+    },
+    "destinationClass": {
+      "type": "string",
+      "enum": [
+        "enrolled_canvas_origin",
+        "enrolled_canvas_subresource",
+        "separate_third_party",
+        "identity_provider_transit",
+        "external_tool",
+        "unknown"
+      ]
+    },
+    "pathClass": {
+      "type": "string",
+      "enum": [
+        "static_asset",
+        "course_or_navigation",
+        "assessment_suspected",
+        "authentication",
+        "autosave_or_submission",
+        "security",
+        "optional_candidate",
+        "unknown"
+      ]
+    },
+    "resourceType": {
+      "type": "string",
+      "enum": [
+        "document",
+        "sub_frame",
+        "stylesheet",
+        "script",
+        "image",
+        "font",
+        "media",
+        "xhr",
+        "fetch",
+        "beacon",
+        "websocket",
+        "other",
+        "unknown"
+      ]
+    },
+    "methodClass": {
+      "type": "string",
+      "enum": ["read", "state_changing", "other", "unknown"]
+    },
+    "initiatorRelation": {
+      "type": "string",
+      "enum": [
+        "enrolled_top_level",
+        "enrolled_child_frame",
+        "sso_transit",
+        "unrelated",
+        "unknown"
+      ]
+    },
+    "eventClass": {
+      "type": "string",
+      "enum": [
+        "essential",
+        "assessment",
+        "authentication_sso",
+        "autosave_submission",
+        "security",
+        "optional_separable",
+        "unknown"
+      ]
+    },
+    "lifecycleState": {
+      "type": "string",
+      "enum": [
+        "DISABLED",
+        "INITIALIZING_ALLOW",
+        "NO_PERMISSION",
+        "IDLE",
+        "CANDIDATE",
+        "SSO_TRANSIT",
+        "ACTIVE_OBSERVE",
+        "ASSESSMENT_SAFE",
+        "UNCERTAIN_ALLOW",
+        "STOPPING"
+      ]
+    },
+    "networkAction": {
+      "type": "string",
+      "const": "ALLOW",
+      "description": "Gate 1 and Gate 2 have no deny, redirect, cancel, delay, or modify action."
+    },
+    "observationAction": {
+      "type": "string",
+      "enum": ["COUNT_ONLY", "REDACTED_RECORD", "SKIP"]
+    },
+    "reasonCode": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$",
+      "maxLength": 64
+    },
+    "classifierRevision": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "maxLength": 64
+    },
+    "retentionExpiresAtBucket": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:(00|15|30|45):00Z$",
+      "description": "UTC deletion deadline on a 15-minute boundary, no more than 24 hours after observedTimeBucket."
+    }
+  },
+  "x-cpg-contract": {
+    "defaultRetentionHours": 24,
+    "maximumRetentionHours": 24,
+    "maximumRecords": 500,
+    "privateBrowsingPersistence": false,
+    "remoteTransmission": false,
+    "forbiddenFields": [
+      "answer",
+      "authorization",
+      "body",
+      "cookie",
+      "courseContent",
+      "credential",
+      "fragment",
+      "fullHistory",
+      "grade",
+      "header",
+      "hostname",
+      "ipAddress",
+      "origin",
+      "path",
+      "query",
+      "rawEvent",
+      "requestId",
+      "response",
+      "studentIdentifier",
+      "tabId",
+      "url",
+      "userAgent",
+      "windowId"
+    ]
+  }
+}

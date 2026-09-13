@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "observedTimeBucket": "2026-01-01T12:00:00Z",
+  "browserFamily": "synthetic",
+  "destinationClass": "unknown",
+  "pathClass": "unknown",
+  "resourceType": "unknown",
+  "methodClass": "unknown",
+  "initiatorRelation": "unknown",
+  "eventClass": "unknown",
+  "lifecycleState": "UNCERTAIN_ALLOW",
+  "networkAction": "BLOCK",
+  "observationAction": "SKIP",
+  "reasonCode": "SYNTHETIC_INVALID_RECORD",
+  "classifierRevision": "gate1.synthetic.v1",
+  "retentionExpiresAtBucket": "2026-01-02T12:00:00Z",
+  "url": "https://canvas.invalid/courses/synthetic?token=not-a-secret"
+}
