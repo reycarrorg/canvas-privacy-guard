@@ -13,7 +13,7 @@ The manifests retain two exact reserved synthetic origins:
 - `https://canvas.test.invalid` for the enrolled synthetic surface;
 - `https://optional.test.invalid` for a separately hosted synthetic observation fixture.
 
-The provider-hosted pattern `https://*.instructure.com/*` is declared only as an optional permission. The popup uses the temporary `activeTab` grant to validate that it was opened from a hosted Canvas tab, requests only that exact origin, and sends the normalized origin to the adapter. Arbitrary sites and wildcard enrollment are rejected. The identity-provider fixture has no manifest host permission. Private/incognito operation is disabled in both manifests. A local alarm wakes the same pruning path at the earliest record expiry. There is no content script, page script, remote endpoint, rule engine, blocking listener, DNR permission, body/header/cookie access, account, sync area, export, or outbound telemetry path.
+The provider-hosted pattern `https://*.instructure.com/*` is declared only as an optional permission. The popup uses the temporary `activeTab` grant to validate that it was opened from a hosted Canvas tab, requests only that exact origin, and sends the normalized origin to the adapter. Arbitrary sites and wildcard enrollment are rejected. The identity-provider fixture has no manifest host permission. Private/incognito operation is disabled in both manifests. A local alarm wakes the same pruning path at the earliest record expiry. There is no content script, page script, remote endpoint, rule engine, blocking listener, DNR permission, body/header/cookie access, account, sync area, remote sync/export, or outbound telemetry path.
 
 ## Implementation map
 
@@ -23,8 +23,9 @@ The provider-hosted pattern `https://*.instructure.com/*` is declared only as an
 | Pure classification | `extension/shared/classifier.mjs` accepts closed categories and emits `networkAction: ALLOW` plus no future rule. |
 | Pre-storage minimization | `extension/shared/request-redactor.mjs` handles a raw URL only synchronously and returns categorical fields; identity and unrelated origins are discarded. |
 | Local bounded history | `extension/shared/record.mjs` and `retention.mjs` enforce a closed record, 15-minute buckets, 24-hour expiry, 500 rows, and delete readback. |
+| Local audit export | `extension/shared/audit-export.mjs` serializes already-minimized categorical records and non-sensitive state into a closed schema, omitting enrolled origins, full URLs, headers, bodies, cookies, credentials, and identifiers. |
 | Browser parity surface | Both MV3 manifests use the same synthetic hosts, optional hosted-Canvas pattern, `activeTab`, local `alarms`/`storage`, and non-blocking `webRequest`; thin browser entry modules call the same adapter. No content or navigation-wide permission is requested. |
-| Visible control | The popup states the protected traffic classes, exact enrolled origin, and zero active optional rules, and provides native keyboard-reachable disable, re-enable, exact-origin enrollment/removal, and delete controls. |
+| Visible control | The popup states the protected traffic classes, exact enrolled origin, and zero active optional rules, and provides native keyboard-reachable disable, re-enable, exact-origin enrollment/removal, delete controls, exact-payload audit preview, and separately confirmed local saving via browser-native Blob/object-URL behavior without new permissions. |
 
 ## Deterministic receipt result
 
@@ -80,11 +81,14 @@ Verified by this evidence tier:
 - static Firefox/Chromium manifest parity and capability denial;
 - exact hosted-Canvas origin acceptance, unrelated-site rejection, and runtime filter construction in the fake browser;
 - accessible/truthful UI source properties;
+- deterministic local audit export generation, schema validation, and omission of enrolled origins and sensitive fields;
+- exact complete audit-payload preview followed by a separate save confirmation, using browser-native Blob/object-URL behavior without elevated or downloads permissions;
 - deterministic in-memory request/response receipt equivalence.
 
 Not verified by this evidence tier:
 
 - actual Firefox or Chromium service-worker, permission, event, storage, popup, suspension, and browser-version behavior;
+- browser-specific file saving, download prompt UX, and OS download manager integration;
 - discovery of external-origin child frames under the intentionally exact host-permission set;
 - an installed extension, packaged archive, signed build, store submission, or update path;
 - any self-owned Canvas, institution, normal profile, real account, course, assessment, or production use, despite source support for an exact hosted origin;

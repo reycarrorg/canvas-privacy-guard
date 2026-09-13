@@ -53,6 +53,13 @@ Exit evidence: deterministic tests plus synthetic runtime demonstration.
 
 This amendment is source support, not permission to install or use the extension on a live account. It does not approve a real telemetry rule.
 
+### Local audit export amendment
+
+- [x] Provide an explicit local audit export generated from already-minimized retained records without sensitive URLs, identifiers, or enrolled origins.
+- [x] Show the exact complete JSON payload, then require a separate save confirmation using browser-native Blob/object-URL behavior with zero new permissions.
+- [x] Add machine-checkable export schema and deterministic static/unit tests.
+- [x] Document the privacy and download boundary in [ADR 0004](adr/0004-local-audit-export.md).
+
 ## Gate 3 — Optional-analytics minimization prototype
 
 - Add enforcement only for optional traffic proven to be separate from core Canvas functions.

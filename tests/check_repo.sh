@@ -18,12 +18,14 @@ required_files=(
   docs/adr/0001-platform-selection.md
   docs/adr/0002-enforcement-authorization-boundary.md
   docs/adr/0003-authenticated-origin-access.md
+  docs/adr/0004-local-audit-export.md
   docs/security/THREAT_MODEL.md
   docs/architecture/DATA_FLOW.md
   docs/contracts/EVENT_CLASSIFICATION.md
   docs/contracts/ACTIVATION_STATE_MACHINE.md
   docs/contracts/METADATA_AND_RETENTION.md
   docs/contracts/metadata-record.schema.json
+  docs/contracts/audit-export.schema.json
   docs/contracts/invariants.json
   docs/testing/GATE_1_ACCEPTANCE_PLAN.md
   docs/testing/GATE_2_SYNTHETIC_EVIDENCE.md
@@ -31,6 +33,7 @@ required_files=(
   extension/manifest.chromium.json
   extension/shared/reducer.mjs
   extension/shared/classifier.mjs
+  extension/shared/audit-export.mjs
   extension/shared/browser-adapter.mjs
   extension/ui/popup.html
   tests/check_markdown_links.py

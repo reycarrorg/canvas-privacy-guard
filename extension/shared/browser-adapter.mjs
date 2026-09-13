@@ -13,6 +13,7 @@ import { makeRecord, isValidRecord } from "./record.mjs";
 import { reduceLifecycle, createInitialState } from "./reducer.mjs";
 import { minimizeRawRequest, pathClassFromUrl } from "./request-redactor.mjs";
 import { insertRecord, pruneRecords } from "./retention.mjs";
+import { makeAuditExport, isValidAuditExport } from "./audit-export.mjs";
 import { makeViewModel } from "./view-model.mjs";
 
 const SETTINGS_KEY = "gate2Settings";
@@ -415,6 +416,16 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
         await activityQueue;
         const activity = await readActivity();
         return { ok: true, view: makeViewModel(coreState, activity, enrolledOrigins[0] || null) };
+      }
+      if (message.command === "GET_AUDIT_EXPORT") {
+        await activityQueue;
+        const activity = await readActivity();
+        const exportData = makeAuditExport(coreState, activity, now());
+        if (!isValidAuditExport(exportData)) {
+          enterFault("SCHEMA_ERROR");
+          return { ok: false, code: "SCHEMA_ERROR" };
+        }
+        return { ok: true, exportData };
       }
       if (message.command === "TOGGLE_DISABLED") {
         await setDisabled(coreState.state !== "DISABLED");

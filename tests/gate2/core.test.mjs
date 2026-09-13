@@ -12,6 +12,11 @@ import {
 } from "../../extension/shared/origin.mjs";
 import { createInitialState, reduceLifecycle } from "../../extension/shared/reducer.mjs";
 import { insertRecord, pruneRecords } from "../../extension/shared/retention.mjs";
+import {
+  makeAuditExport,
+  isValidAuditExport,
+  serializeAuditExport,
+} from "../../extension/shared/audit-export.mjs";
 
 const ACTIVE_INPUT = Object.freeze({
   destinationClass: "enrolled_canvas_origin",
@@ -287,4 +292,80 @@ test("T-RETENTION-01 cap, boundary, and expiry are deterministic", () => {
   assert.equal(rows.length, 500);
   assert.equal(rows[0].index, 1);
   assert.deepEqual(pruneRecords(rows, Date.parse(rows.at(-1).retentionExpiresAtBucket)), []);
+});
+
+test("T-EXPORT-01 local audit export is deterministic, versioned, closed-schema, and strictly privacy-preserving", () => {
+  const nowMs = Date.parse("2026-01-01T12:07:39Z");
+  const validRecord = Object.freeze({
+    schemaVersion: 1,
+    observedTimeBucket: "2026-01-01T12:00:00Z",
+    browserFamily: "synthetic",
+    destinationClass: "enrolled_canvas_origin",
+    pathClass: "course_or_navigation",
+    resourceType: "document",
+    methodClass: "read",
+    initiatorRelation: "enrolled_top_level",
+    eventClass: "essential",
+    lifecycleState: "ACTIVE_OBSERVE",
+    networkAction: "ALLOW",
+    observationAction: "REDACTED_RECORD",
+    reasonCode: "SNAPSHOT_RECONCILED",
+    classifierRevision: "gate2.1",
+    retentionExpiresAtBucket: "2026-01-02T12:00:00Z",
+  });
+
+  const coreState = {
+    state: "ACTIVE_OBSERVE",
+    reasonCode: "SNAPSHOT_RECONCILED",
+    enrolledOrigins: ["https://canvas.test.invalid"],
+    enrolledOrigin: "https://canvas.test.invalid",
+    surfaces: { "tab:1": { key: "tab:1", phase: "recognized" } },
+  };
+
+  const exportPayload = makeAuditExport(coreState, [validRecord], nowMs);
+  assert.equal(isValidAuditExport(exportPayload), true);
+  assert.equal(exportPayload.schemaVersion, 1);
+  assert.equal(exportPayload.exportFormat, "canvas-privacy-guard-audit-export");
+  assert.equal(exportPayload.generatedAtBucket, "2026-01-01T12:00:00Z");
+  assert.equal(exportPayload.lifecycleState, "ACTIVE_OBSERVE");
+  assert.equal(exportPayload.reasonCode, "SNAPSHOT_RECONCILED");
+  assert.equal(exportPayload.networkAction, "ALLOW");
+  assert.equal(exportPayload.blockingRuleCount, 0);
+  assert.equal(exportPayload.recordCount, 1);
+  assert.deepEqual(exportPayload.records, [validRecord]);
+
+  const serialized = serializeAuditExport(exportPayload);
+  assert.equal(serialized.includes("canvas.test.invalid"), false);
+  assert.equal(serialized.includes("enrolledOrigin"), false);
+  assert.equal(serialized.includes("tab:1"), false);
+  assert.equal(serialized.endsWith("\n"), true);
+
+  const exportPayload2 = makeAuditExport(coreState, [validRecord], nowMs);
+  assert.equal(serializeAuditExport(exportPayload2), serialized);
+
+  const earlierRecord = {
+    ...validRecord,
+    observedTimeBucket: "2026-01-01T11:45:00Z",
+    retentionExpiresAtBucket: "2026-01-02T11:45:00Z",
+  };
+  const unsorted = [validRecord, earlierRecord];
+  const sortedExport = makeAuditExport(coreState, unsorted, nowMs);
+  assert.equal(sortedExport.records[0].observedTimeBucket, "2026-01-01T11:45:00Z");
+  assert.equal(sortedExport.records[1].observedTimeBucket, "2026-01-01T12:00:00Z");
+
+  assert.equal(isValidAuditExport(null), false);
+  assert.equal(isValidAuditExport([]), false);
+  assert.equal(isValidAuditExport({ ...exportPayload, schemaVersion: 2 }), false);
+  assert.equal(isValidAuditExport({ ...exportPayload, exportFormat: "other-format" }), false);
+  assert.equal(isValidAuditExport({ ...exportPayload, networkAction: "BLOCK" }), false);
+  assert.equal(isValidAuditExport({ ...exportPayload, blockingRuleCount: 1 }), false);
+  assert.equal(isValidAuditExport({ ...exportPayload, lifecycleState: "NON_EXISTENT_STATE" }), false);
+  assert.equal(isValidAuditExport({ ...exportPayload, generatedAtBucket: "2026-01-01T12:07:39Z" }), false);
+  assert.equal(isValidAuditExport({ ...exportPayload, recordCount: 99 }), false);
+  assert.equal(isValidAuditExport({ ...exportPayload, extraProperty: "forbidden" }), false);
+  assert.equal(isValidAuditExport({ ...exportPayload, url: "https://example.com" }), false);
+  assert.equal(isValidAuditExport({ ...exportPayload, enrolledOrigin: "https://canvas.test.invalid" }), false);
+  assert.equal(isValidAuditExport({ ...exportPayload, records: [{ ...validRecord, url: "https://leak.test.invalid" }] }), false);
+
+  assert.throws(() => serializeAuditExport({ ...exportPayload, networkAction: "BLOCK" }), /INVALID_AUDIT_EXPORT/);
 });

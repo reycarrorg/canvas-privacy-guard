@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createObservationAdapter } from "../../extension/shared/browser-adapter.mjs";
+import { isValidAuditExport, serializeAuditExport } from "../../extension/shared/audit-export.mjs";
 import { minimizeRawRequest } from "../../extension/shared/request-redactor.mjs";
 import { makeFakeBrowser, flushAsyncWork } from "./fake-browser.mjs";
 
@@ -514,4 +515,100 @@ test("T-FAULT-01 T-FAULT-02 adapter and prospective-rule exceptions fail to UNCE
   await failure.start();
   assert.equal(failure.getState().state, "UNCERTAIN_ALLOW");
   assert.equal(failure.getState().networkAction, "ALLOW");
+});
+
+test("T-ADAPTER-03 GET_AUDIT_EXPORT returns valid audit export without sensitive fields or enrolled origins", async () => {
+  const canvasOrigin = "https://example-university.instructure.com";
+  const browser = makeFakeBrowser({
+    settings: { schemaVersion: 1, disabled: false, enrolledOrigins: [canvasOrigin] },
+    permissions: [`${canvasOrigin}/*`, "https://optional.test.invalid/*"],
+    tabs: [{
+      id: 7,
+      windowId: 1,
+      incognito: false,
+      url: `${canvasOrigin}/courses/123`,
+    }],
+  });
+  const adapter = createObservationAdapter(browser, "synthetic", {
+    now: () => FIXED_NOW,
+    monotonic: () => 100,
+  });
+  await adapter.start();
+
+  browser.webRequest.onBeforeRequest.emitSync({
+    url: `${canvasOrigin}/courses/123/module.css`,
+    initiator: `${canvasOrigin}/courses/123`,
+    method: "GET",
+    type: "stylesheet",
+    tabId: 7,
+    parentFrameId: -1,
+    incognito: false,
+  });
+  await flushAsyncWork();
+
+  const response = await adapter.handleMessage({ command: "GET_AUDIT_EXPORT" });
+  assert.equal(response.ok, true);
+  assert.equal(isValidAuditExport(response.exportData), true);
+  assert.equal(response.exportData.schemaVersion, 1);
+  assert.equal(response.exportData.exportFormat, "canvas-privacy-guard-audit-export");
+  assert.equal(response.exportData.networkAction, "ALLOW");
+  assert.equal(response.exportData.blockingRuleCount, 0);
+  assert.equal(response.exportData.recordCount, 1);
+  assert.equal(response.exportData.records.length, 1);
+
+  // Verify that the record is categorical and contains no raw URLs or identifiers
+  const record = response.exportData.records[0];
+  assert.equal(record.destinationClass, "enrolled_canvas_origin");
+  assert.equal(record.pathClass, "static_asset");
+  assert.equal(record.resourceType, "stylesheet");
+  assert.equal(record.networkAction, "ALLOW");
+
+  // Serialization must never leak the enrolled origin string or forbidden tokens
+  const serialized = serializeAuditExport(response.exportData);
+  assert.equal(serialized.includes("example-university.instructure.com"), false);
+  assert.equal(serialized.includes("enrolledOrigin"), false);
+  assert.equal(serialized.includes("module.css"), false);
+  assert.equal(serialized.includes("tabId"), false);
+
+  // Test browser-native Blob and object URL creation and revocation
+  const blob = new Blob([serialized], { type: "application/json" });
+  assert.equal(blob.type, "application/json");
+  const objUrl = URL.createObjectURL(blob);
+  assert.equal(typeof objUrl, "string");
+  URL.revokeObjectURL(objUrl);
+});
+
+test("T-ADAPTER-04 DELETE_ACTIVITY empties audit export records while preserving state", async () => {
+  const browser = makeFakeBrowser();
+  const adapter = createObservationAdapter(browser, "synthetic", {
+    now: () => FIXED_NOW,
+    monotonic: () => 100,
+  });
+  await adapter.start();
+
+  browser.webRequest.onBeforeRequest.emitSync({
+    url: "https://canvas.test.invalid/courses/synthetic/file.css",
+    initiator: "https://canvas.test.invalid/courses/synthetic",
+    method: "GET",
+    type: "stylesheet",
+    tabId: 1,
+    parentFrameId: -1,
+    incognito: false,
+  });
+  await flushAsyncWork();
+
+  const preDelete = await adapter.handleMessage({ command: "GET_AUDIT_EXPORT" });
+  assert.equal(preDelete.ok, true);
+  assert.equal(preDelete.exportData.recordCount, 1);
+
+  const deleteResponse = await adapter.handleMessage({ command: "DELETE_ACTIVITY" });
+  assert.equal(deleteResponse.ok, true);
+
+  const postDelete = await adapter.handleMessage({ command: "GET_AUDIT_EXPORT" });
+  assert.equal(postDelete.ok, true);
+  assert.equal(isValidAuditExport(postDelete.exportData), true);
+  assert.equal(postDelete.exportData.recordCount, 0);
+  assert.deepEqual(postDelete.exportData.records, []);
+  assert.equal(postDelete.exportData.networkAction, "ALLOW");
+  assert.equal(postDelete.exportData.blockingRuleCount, 0);
 });

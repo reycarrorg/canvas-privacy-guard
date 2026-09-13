@@ -30,15 +30,23 @@
         <div class="controls">
           <button id="toggle-disabled" type="button">Emergency disable observation</button>
           <button id="delete-activity" type="button">Delete local activity</button>
+          <button id="export-audit" type="button">Preview local audit export</button>
           <button id="enroll-origin" type="button">Grant access to this Canvas origin</button>
           <button id="remove-origin" type="button">Remove Canvas-origin access</button>
         </div>
         <p id="action-result" role="status" aria-live="polite"></p>
+        <section id="audit-preview" aria-labelledby="audit-preview-title" hidden>
+          <h3 id="audit-preview-title">Exact JSON that will be saved</h3>
+          <p>Review this complete local payload before saving it. Nothing is uploaded.</p>
+          <textarea id="audit-preview-json" rows="12" readonly spellcheck="false" aria-label="Exact local audit export JSON"></textarea>
+          <button id="save-audit" type="button" disabled>Save reviewed audit JSON</button>
+        </section>
       </section>
 
       <section aria-labelledby="activity-title">
         <h2 id="activity-title">Redacted local activity</h2>
         <p>Records use 15-minute time buckets and contain categories only. They expire within 24 hours and are capped at 500 rows.</p>
+        <p>Audit export first shows the exact JSON for review, then saves it locally only after a separate confirmation. It contains only these categorical records and non-sensitive status. Enrolled origins, URLs, headers, bodies, cookies, and student data are never included.</p>
         <div class="table-wrap" tabindex="0" aria-label="Scrollable redacted activity table">
           <table>
             <caption id="activity-caption">No local activity records</caption>

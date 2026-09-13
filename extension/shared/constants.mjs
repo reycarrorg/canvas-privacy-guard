@@ -6,6 +6,8 @@ export const SCHEMA_VERSION = 1;
 export const RETENTION_MS = 24 * 60 * 60 * 1000;
 export const MAX_RECORDS = 500;
 export const SSO_TRANSIT_MS = 5 * 60 * 1000;
+export const AUDIT_EXPORT_SCHEMA_VERSION = 1;
+export const AUDIT_EXPORT_FORMAT = "canvas-privacy-guard-audit-export";
 
 export const STATES = Object.freeze([
   "DISABLED",

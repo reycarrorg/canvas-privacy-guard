@@ -75,7 +75,7 @@ If the storage schema version is missing, newer than supported, corrupt, or inco
 
 Production logs contain stable error codes and aggregate counters only. Stringifying browser event objects is prohibited. Exceptions must be caught at the adapter boundary and mapped to constant reason codes. Developer diagnostics use synthetic fixtures only and must pass the same schema before being written.
 
-Gate 2 exports are not authorized by this contract. A future export requires a separate ADR proving that it cannot reveal enrolled origins, activity timelines, or identifiers and that the user previews the exact payload before saving it.
+Local audit export was authorized for the Gate 2 observation prototype by [ADR 0004](../adr/0004-local-audit-export.md). The exact complete JSON payload is generated and displayed locally on an explicit user gesture, and saving requires a separate user confirmation after that preview. It contains only already-minimized categorical records (with 15-minute time buckets) and non-sensitive lifecycle state. It strictly omits enrolled origins, full URLs, paths, headers, bodies, cookies, credentials, answers, grades, student identifiers, and tab IDs.
 
 ## Deterministic rejection examples
 

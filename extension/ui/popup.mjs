@@ -2,6 +2,7 @@
 
 const extensionApi = globalThis.browser || globalThis.chrome;
 const runtime = extensionApi?.runtime;
+let pendingAuditExport = null;
 
 function canvasOriginFromUrl(value) {
   try {
@@ -22,7 +23,18 @@ function text(id, value) {
   document.getElementById(id).textContent = String(value);
 }
 
+function clearAuditPreview() {
+  pendingAuditExport = null;
+  const preview = document.getElementById("audit-preview");
+  const json = document.getElementById("audit-preview-json");
+  const save = document.getElementById("save-audit");
+  preview.hidden = true;
+  json.value = "";
+  save.disabled = true;
+}
+
 function render(view) {
+  clearAuditPreview();
   text("state-code", view.state);
   text("state-title", view.title);
   text("state-detail", view.detail);
@@ -121,8 +133,56 @@ async function removeCanvasOrigin() {
   }
 }
 
+async function previewAuditLog() {
+  clearAuditPreview();
+  text("action-result", "Preparing exact local audit export for review…");
+  try {
+    const response = await runtime.sendMessage({ command: "GET_AUDIT_EXPORT" });
+    if (!response?.ok || !response?.exportData) {
+      text("action-result", `Export failed safely: ${response?.code || "UNKNOWN_ERROR"}`);
+      return;
+    }
+    pendingAuditExport = Object.freeze({
+      json: `${JSON.stringify(response.exportData, null, 2)}\n`,
+      filename: `canvas-privacy-guard-audit-${response.exportData.generatedAtBucket.replace(/[:]/g, "-")}.json`,
+      recordCount: response.exportData.recordCount,
+    });
+    document.getElementById("audit-preview-json").value = pendingAuditExport.json;
+    document.getElementById("audit-preview").hidden = false;
+    document.getElementById("save-audit").disabled = false;
+    text("action-result", "Review the exact JSON below, then choose Save reviewed audit JSON.");
+  } catch {
+    clearAuditPreview();
+    text("action-result", "Export preview failed: ADAPTER_ERROR");
+  }
+}
+
+function saveReviewedAuditLog() {
+  if (!pendingAuditExport) {
+    text("action-result", "Nothing was saved: preview the current audit export first.");
+    return;
+  }
+  try {
+    const blob = new Blob([pendingAuditExport.json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = pendingAuditExport.filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    text(
+      "action-result",
+      `Saved ${pendingAuditExport.recordCount} reviewed local record${pendingAuditExport.recordCount === 1 ? "" : "s"} to JSON.`,
+    );
+  } catch {
+    text("action-result", "Reviewed export was not saved: LOCAL_SAVE_ERROR");
+  }
+}
+
 document.getElementById("toggle-disabled").addEventListener("click", () => send("TOGGLE_DISABLED"));
 document.getElementById("delete-activity").addEventListener("click", () => send("DELETE_ACTIVITY"));
+document.getElementById("export-audit").addEventListener("click", previewAuditLog);
+document.getElementById("save-audit").addEventListener("click", saveReviewedAuditLog);
 document.getElementById("enroll-origin").addEventListener("click", enrollCurrentCanvasOrigin);
 document.getElementById("remove-origin").addEventListener("click", removeCanvasOrigin);
 void send("GET_VIEW");

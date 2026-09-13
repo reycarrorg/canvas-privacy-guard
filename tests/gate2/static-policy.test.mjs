@@ -72,9 +72,13 @@ test("accessible visible state UI is keyboard reachable and truthful without col
   for (const label of [
     "Emergency disable observation",
     "Delete local activity",
+    "Preview local audit export",
+    "Exact JSON that will be saved",
+    "Save reviewed audit JSON",
     "Grant access to this Canvas origin",
     "Active optional blocking rules:",
     "No optional blocking rule is installed in this preview.",
+    "Audit export first shows the exact JSON for review",
   ]) assert.ok(html.includes(label), label);
   assert.ok(html.includes('aria-live="polite"'));
   assert.ok(html.includes('aria-label="Scrollable redacted activity table"'));
@@ -82,6 +86,12 @@ test("accessible visible state UI is keyboard reachable and truthful without col
   assert.ok(css.includes(":focus-visible"));
   assert.ok(css.includes("outline:"));
   assert.ok(script.includes("textContent"));
+  assert.ok(script.includes("new Blob("));
+  assert.ok(script.includes("URL.createObjectURL("));
+  assert.ok(script.includes("URL.revokeObjectURL("));
+  assert.ok(script.includes("previewAuditLog"));
+  assert.ok(script.includes("saveReviewedAuditLog"));
+  assert.ok(script.includes("pendingAuditExport"));
   assert.equal(script.includes("innerHTML"), false);
   assert.equal(/color:\s*(red|green|orange)/i.test(css), false);
 });

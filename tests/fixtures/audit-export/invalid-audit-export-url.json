@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "exportFormat": "canvas-privacy-guard-audit-export",
+  "generatedAtBucket": "2026-01-01T12:00:00Z",
+  "lifecycleState": "ACTIVE_OBSERVE",
+  "reasonCode": "SNAPSHOT_RECONCILED",
+  "networkAction": "ALLOW",
+  "blockingRuleCount": 0,
+  "recordCount": 0,
+  "records": [],
+  "url": "https://canvas.test.invalid/forbidden"
+}

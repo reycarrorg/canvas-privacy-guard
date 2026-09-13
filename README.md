@@ -43,11 +43,13 @@ Canvas documentation states that quiz logs are intended to investigate quiz prob
 - [Activation state-machine contract](docs/contracts/ACTIVATION_STATE_MACHINE.md)
 - [Redacted metadata and retention contract](docs/contracts/METADATA_AND_RETENTION.md)
 - [Machine-checkable metadata schema](docs/contracts/metadata-record.schema.json)
+- [Machine-checkable audit export schema](docs/contracts/audit-export.schema.json)
 - [Gate 1 invariants](docs/contracts/invariants.json)
 - [Gate 1 acceptance plan](docs/testing/GATE_1_ACCEPTANCE_PLAN.md)
 - [Gate 2 synthetic evidence](docs/testing/GATE_2_SYNTHETIC_EVIDENCE.md)
 - [Enforcement authorization boundary](docs/adr/0002-enforcement-authorization-boundary.md)
 - [Authenticated Canvas-origin access decision](docs/adr/0003-authenticated-origin-access.md)
+- [Local audit export decision](docs/adr/0004-local-audit-export.md)
 - [Development roadmap](docs/ROADMAP.md)
 - [Security policy](SECURITY.md)
 

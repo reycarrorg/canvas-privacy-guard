@@ -39,6 +39,7 @@ button {
   color: ButtonText;
 }
 button:hover { text-decoration: underline; }
+button:disabled { opacity: 0.65; }
 button:focus-visible,
 .table-wrap:focus-visible {
   outline: 4px solid Highlight;
@@ -50,6 +51,7 @@ button:focus-visible,
   border: 1px solid currentColor;
 }
 table { width: 100%; border-collapse: collapse; }
+textarea { width: 100%; box-sizing: border-box; font: 0.8rem/1.35 ui-monospace, monospace; }
 caption { padding: 0.4rem; text-align: left; font-weight: 700; }
 th, td { border: 1px solid currentColor; padding: 0.35rem; text-align: left; }
 .boundary { font-weight: 650; }
