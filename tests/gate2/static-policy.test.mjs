@@ -73,6 +73,7 @@ test("accessible visible state UI is keyboard reachable and truthful without col
     "Emergency disable observation",
     "Delete local activity",
     "Grant access to this Canvas origin",
+    "Residual exact permissions:",
     "Active optional blocking rules:",
     "No optional blocking rule is installed in this preview.",
   ]) assert.ok(html.includes(label), label);
@@ -82,6 +83,8 @@ test("accessible visible state UI is keyboard reachable and truthful without col
   assert.ok(css.includes(":focus-visible"));
   assert.ok(css.includes("outline:"));
   assert.ok(script.includes("textContent"));
+  assert.ok(script.includes("RECONCILE_PERMISSIONS"));
+  assert.ok(script.includes("residualPermissionCount"));
   assert.equal(script.includes("innerHTML"), false);
   assert.equal(/color:\s*(red|green|orange)/i.test(css), false);
 });

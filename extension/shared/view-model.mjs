@@ -13,7 +13,12 @@ const LABELS = Object.freeze({
   STOPPING: ["Stopping safely", "Volatile observation state is being discarded."],
 });
 
-export function makeViewModel(coreState, activity = [], enrolledOrigin = null) {
+export function makeViewModel(
+  coreState,
+  activity = [],
+  enrolledOrigin = null,
+  residualPermissionCount = 0,
+) {
   const [title, detail] = LABELS[coreState?.state] || LABELS.UNCERTAIN_ALLOW;
   return Object.freeze({
     title: coreState?.state === "ACTIVE_OBSERVE"
@@ -26,6 +31,9 @@ export function makeViewModel(coreState, activity = [], enrolledOrigin = null) {
     trafficStatement: "Canvas, assessment, sign-in, save, submission, security, accessibility, and uncertain traffic is always allowed. No optional blocking rule is installed in this preview.",
     disableLabel: coreState?.state === "DISABLED" ? "Re-enable observation" : "Emergency disable observation",
     enrolledOrigin: typeof enrolledOrigin === "string" ? enrolledOrigin : null,
+    residualPermissionCount: Number.isInteger(residualPermissionCount) && residualPermissionCount > 0
+      ? residualPermissionCount
+      : 0,
     blockingRuleCount: 0,
     activity: Array.isArray(activity) ? activity : [],
   });

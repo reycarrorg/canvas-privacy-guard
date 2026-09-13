@@ -26,7 +26,9 @@ The implementation:
 - removes the stored enrollment and asks the browser to revoke the exact permission when the user removes access;
 - does not add a content script or inspect DOM content, cookies, headers, bodies, answers, grades, messages, files, or student identifiers;
 - stores only the existing bounded categorical metadata; and
-- records one minimized categorical assessment signal and then suspends observation when an assessment-like route is detected; malformed or unknown frame metadata suspends without storing it.
+- suspends observation without recording the request when an assessment-like route, child frame, or malformed/unknown frame signal is detected.
+
+Exact-origin enrollment is single-tenant. A switch requests the new exact permission while the prior enrollment remains recoverable, commits and reads back the new stored enrollment, then revokes the prior exact permission and reconciles browser permission readback. A failed commit restores the prior stored enrollment and removes the newly requested grant when possible. A permission that cannot be removed is reported as residual and forces the adapter into `UNCERTAIN_ALLOW`; startup reconciliation removes only exact hosted-Canvas grants that do not match the single stored enrollment, plus any browser-reported provider wildcard grant. The standing synthetic hosts are never removed by this reconciliation.
 
 The active blocking-rule count remains zero. Authenticated-origin access does not change the `ALLOW` network-action invariant. A later rule still requires the complete rule-specific authorization record in ADR 0002, and the UI must display the exact active rule count.
 
