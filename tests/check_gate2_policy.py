@@ -56,6 +56,7 @@ def main() -> int:
             fail(f"{label} found in Gate 2 artifacts")
 
     for token in (
+        "webNavigation",
         "webRequestBlocking",
         "declarativeNetRequest",
         "filterResponseData",

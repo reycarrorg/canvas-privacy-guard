@@ -23,7 +23,7 @@ The identity-provider fixture has no manifest host permission. Private/incognito
 | Pure classification | `extension/shared/classifier.mjs` accepts closed categories and emits `networkAction: ALLOW` plus no future rule. |
 | Pre-storage minimization | `extension/shared/request-redactor.mjs` handles a raw URL only synchronously and returns categorical fields; identity and unrelated origins are discarded. |
 | Local bounded history | `extension/shared/record.mjs` and `retention.mjs` enforce a closed record, 15-minute buckets, 24-hour expiry, 500 rows, and delete readback. |
-| Browser parity surface | Both MV3 manifests use the same exact hosts and only local `alarms`, `storage`, plus non-blocking `webRequest`; thin browser entry modules call the same adapter. |
+| Browser parity surface | Both MV3 manifests use the same exact hosts and only local `alarms`, `storage`, plus non-blocking `webRequest`; thin browser entry modules call the same adapter. No navigation-wide permission is requested. |
 | Visible control | The popup always states that all traffic is allowed and provides native keyboard-reachable disable, re-enable, enrollment, removal, and delete controls. |
 
 ## Deterministic receipt result
@@ -58,6 +58,14 @@ The pre-PR executable diff review covered all 16 extension source, manifest, and
 
 Both defects were nevertheless blocking Gate 2 contract failures and were repaired before commit. The adapter now requires recognized-tab and enrolled-initiator evidence, serializes all activity mutations, detaches observation during deletion, and cancels stale reconstructions. Targeted regressions require unrelated rows and post-delete restored rows to remain zero. The full Gate 1 and Gate 2 checks are rerun after those repairs.
 
+## Follow-up privacy-boundary repair
+
+A focused review of the same adapter found that emergency disable and enrollment removal detached only after their settings writes, and that an activity write already in progress could complete after either privacy action. The repair now detaches synchronously before the first asynchronous settings operation, advances an observation generation, and restores the last fully committed activity baseline after all older queued work drains. Deterministic held-write tests cover both actions at the settings boundary and at an already-pending activity write.
+
+The adapter also validates `parentFrameId` as an integer no smaller than `-1`. Malformed frame metadata and any delivered child-frame metadata immediately enter `ASSESSMENT_SAFE`, detach observation, fence earlier queued work, store no activity, and still return `undefined` with `networkAction: ALLOW`. Suspected top-level assessment paths follow the same suspension boundary, and later same-tab update events cannot clear the in-memory assessment lock.
+
+This is adapter-level evidence only. With the exact two-host permission contract, no content script, and no navigation-wide permission, the prototype cannot prove that a real browser will deliver a child navigation to an origin outside those two hosts or reconstruct still-present frames after a service-worker restart. The direct child-frame injection test proves behavior if such metadata reaches the adapter; it does **not** prove external-subframe discovery in Firefox or Chromium. Therefore useful `ACTIVE_OBSERVE` with complete external-frame awareness remains a browser-runtime design blocker, not a verified Gate 2 capability.
+
 ## Gate status
 
 Verified by this evidence tier:
@@ -67,6 +75,8 @@ Verified by this evidence tier:
 - exact synthetic HTTPS matching and permission cases;
 - context-wide assessment dominance and private isolation;
 - reconstruction, permission loss, disable/re-enable, faults, retention, and delete readback;
+- synchronous detach and pending-write fencing for emergency disable and enrollment removal;
+- fail-closed handling of malformed and directly delivered child-frame metadata at the adapter boundary;
 - static Firefox/Chromium manifest parity and capability denial;
 - accessible/truthful UI source properties;
 - deterministic in-memory request/response receipt equivalence.
@@ -74,6 +84,7 @@ Verified by this evidence tier:
 Not verified by this evidence tier:
 
 - actual Firefox or Chromium service-worker, permission, event, storage, popup, suspension, and browser-version behavior;
+- discovery of external-origin child frames under the intentionally exact host-permission set;
 - an installed extension, packaged archive, signed build, store submission, or update path;
 - any self-owned Canvas, institution, normal profile, real account, course, assessment, or production use;
 - Gate 3 enforcement, real-world safety, compatibility, release readiness, or secure erasure from browser/OS backups.

@@ -60,6 +60,7 @@ export function minimizeRawRequest(rawEvent, context) {
     context.recognizedSurface !== true ||
     typeof context.canvasOrigin !== "string"
   ) return null;
+  if (!Number.isInteger(rawEvent.parentFrameId) || rawEvent.parentFrameId < -1) return null;
 
   try {
     const parsed = new URL(typeof rawEvent.url === "string" ? rawEvent.url : "");

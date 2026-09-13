@@ -39,7 +39,12 @@ function assessmentFromPath(pathClass) {
 }
 
 function surfaceFromTab(tab, enrolledOrigins, nowMonotonic) {
-  if (!tab || tab.incognito === true || typeof tab.url !== "string") return null;
+  if (
+    !tab ||
+    !Number.isInteger(tab.id) ||
+    tab.incognito === true ||
+    typeof tab.url !== "string"
+  ) return null;
   try {
     const parsed = new URL(tab.url);
     if (
@@ -80,7 +85,9 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
   let requestObserverAttached = false;
   let started = false;
   let reconstructionVersion = 0;
+  let observationGeneration = 0;
   let activityQueue = Promise.resolve();
+  let committedActivity = [];
   const now = typeof options.now === "function" ? options.now : () => Date.now();
   const monotonic = typeof options.monotonic === "function" ? options.monotonic : () => performance.now();
   const readProspectiveRules = typeof options.readProspectiveRules === "function"
@@ -97,6 +104,42 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
     const result = activityQueue.then(operation);
     activityQueue = result.catch(() => undefined);
     return result;
+  }
+
+  function beginPrivacyAction() {
+    reconstructionVersion += 1;
+    observationGeneration += 1;
+    detachRequestObserver();
+    return structuredClone(committedActivity);
+  }
+
+  async function restoreActivityBaseline(baseline) {
+    await enqueueActivity(async () => {
+      if (baseline.length === 0) {
+        await callApi(browserApi.storage.local, "remove", ACTIVITY_KEY);
+      } else {
+        await callApi(browserApi.storage.local, "set", { [ACTIVITY_KEY]: baseline });
+      }
+      committedActivity = structuredClone(baseline);
+      await scheduleRetention(baseline);
+    });
+  }
+
+  function suspendSurface(key, assessment) {
+    const surface = key ? coreState.surfaces[key] : null;
+    if (!surface || surface.phase !== "recognized") {
+      enterFault("ADAPTER_ERROR");
+      return;
+    }
+    const baseline = structuredClone(committedActivity);
+    observationGeneration += 1;
+    detachRequestObserver();
+    dispatch({
+      kind: "FRAME_CLASS_CHANGED",
+      surface: { ...surface, assessment },
+      nowMonotonic: monotonic(),
+    });
+    void restoreActivityBaseline(baseline).catch(() => enterFault("STORAGE_ERROR"));
   }
 
   function detachRequestObserver() {
@@ -122,6 +165,7 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
 
   function enterFault(kind = "ADAPTER_ERROR") {
     reconstructionVersion += 1;
+    observationGeneration += 1;
     detachRequestObserver();
     dispatch({ kind, nowMonotonic: monotonic() });
   }
@@ -136,6 +180,7 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
     if (JSON.stringify(pruned) !== JSON.stringify(current || [])) {
       await callApi(browserApi.storage.local, "set", { [ACTIVITY_KEY]: pruned });
     }
+    committedActivity = structuredClone(pruned);
     await scheduleRetention(pruned);
     return pruned;
   }
@@ -151,16 +196,20 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
     await callApi(browserApi.alarms, "create", RETENTION_ALARM, { when: Math.min(...deadlines) });
   }
 
-  async function persistRecord(record) {
+  async function persistRecord(record, generation) {
     if (!isValidRecord(record) || record.networkAction !== NETWORK_ACTION) {
       enterFault("SCHEMA_ERROR");
       return;
     }
     try {
+      if (generation !== observationGeneration) return;
       const activity = await readActivity();
-      if (!coreState.observationEligible) return;
+      if (generation !== observationGeneration || !coreState.observationEligible) return;
       const next = insertRecord(activity, record, now());
+      if (generation !== observationGeneration) return;
       await callApi(browserApi.storage.local, "set", { [ACTIVITY_KEY]: next });
+      if (generation !== observationGeneration) return;
+      committedActivity = structuredClone(next);
       await scheduleRetention(next);
     } catch {
       enterFault("STORAGE_ERROR");
@@ -169,9 +218,21 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
 
   function onBeforeRequest(rawEvent) {
     let redacted = null;
+    const generation = observationGeneration;
     try {
       const key = rawEvent && Number.isInteger(rawEvent.tabId) ? `tab:${rawEvent.tabId}` : null;
       const recognizedSurface = key !== null && coreState.surfaces[key]?.phase === "recognized";
+      if (
+        recognizedSurface &&
+        (!Number.isInteger(rawEvent.parentFrameId) || rawEvent.parentFrameId < -1)
+      ) {
+        suspendSurface(key, "unknown");
+        return undefined;
+      }
+      if (recognizedSurface && rawEvent.parentFrameId >= 0) {
+        suspendSurface(key, "unknown");
+        return undefined;
+      }
       redacted = minimizeRawRequest(rawEvent, {
         active: coreState.observationEligible,
         recognizedSurface,
@@ -189,28 +250,21 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
     const decision = classifyRedacted(redacted, { optionalCandidateAccepted: true });
     if (decision.suspendObservation) {
       const key = rawEvent && Number.isInteger(rawEvent.tabId) ? `tab:${rawEvent.tabId}` : null;
-      if (key && coreState.surfaces[key]) {
-        dispatch({
-          kind: "FRAME_CLASS_CHANGED",
-          surface: { ...coreState.surfaces[key], assessment: "suspected" },
-          nowMonotonic: monotonic(),
-        });
-      } else {
-        enterFault("ADAPTER_ERROR");
-      }
+      suspendSurface(key, "suspected");
       return undefined;
     }
     if (decision.observationAction === "REDACTED_RECORD") {
       const record = makeRecord(redacted, decision, browserFamily, now());
-      void enqueueActivity(() => persistRecord(record));
+      void enqueueActivity(() => persistRecord(record, generation));
     }
     return undefined;
   }
 
   async function reconstruct(kind = "WAKE") {
     const version = ++reconstructionVersion;
-    dispatch({ kind, nowMonotonic: monotonic() });
+    observationGeneration += 1;
     detachRequestObserver();
+    dispatch({ kind, nowMonotonic: monotonic() });
     try {
       const rules = await readProspectiveRules();
       const ruleStateEmpty = Array.isArray(rules) && rules.length === 0;
@@ -252,9 +306,14 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
 
   async function handleTabChanged(tabId, tab) {
     try {
+      if (!Number.isInteger(tabId) || tab?.id !== tabId) throw new Error("INVALID_TAB_EVENT");
       const surface = surfaceFromTab(tab, enrolledOrigins, monotonic());
       const key = `tab:${String(tabId)}`;
       if (surface) {
+        const prior = coreState.surfaces[key];
+        if (prior?.phase === "recognized" && prior.assessment !== "not_suspected") {
+          surface.assessment = prior.assessment;
+        }
         dispatch({ kind: "TAB_COMMITTED", surface, nowMonotonic: monotonic() });
       } else if (coreState.surfaces[key]) {
         dispatch({ kind: "TAB_REMOVED", key, nowMonotonic: monotonic() });
@@ -265,41 +324,61 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
   }
 
   async function setDisabled(disabled) {
-    reconstructionVersion += 1;
-    const stored = await callApi(browserApi.storage.local, "get", SETTINGS_KEY);
-    const settings = validatedSettings(stored?.[SETTINGS_KEY]);
-    if (!settings) throw new Error("INVALID_SETTINGS");
-    await callApi(browserApi.storage.local, "set", {
-      [SETTINGS_KEY]: { ...settings, disabled },
-    });
     if (disabled) {
-      detachRequestObserver();
-      const rules = await readProspectiveRules();
-      dispatch({ kind: "DISABLE", ruleStateEmpty: Array.isArray(rules) && rules.length === 0, nowMonotonic: monotonic() });
+      const baseline = beginPrivacyAction();
+      try {
+        const stored = await callApi(browserApi.storage.local, "get", SETTINGS_KEY);
+        const settings = validatedSettings(stored?.[SETTINGS_KEY]);
+        if (!settings) throw new Error("INVALID_SETTINGS");
+        await callApi(browserApi.storage.local, "set", {
+          [SETTINGS_KEY]: { ...settings, disabled: true },
+        });
+        await restoreActivityBaseline(baseline);
+        const rules = await readProspectiveRules();
+        dispatch({ kind: "DISABLE", ruleStateEmpty: Array.isArray(rules) && rules.length === 0, nowMonotonic: monotonic() });
+      } catch (error) {
+        await restoreActivityBaseline(baseline);
+        throw error;
+      }
     } else {
+      reconstructionVersion += 1;
+      const stored = await callApi(browserApi.storage.local, "get", SETTINGS_KEY);
+      const settings = validatedSettings(stored?.[SETTINGS_KEY]);
+      if (!settings) throw new Error("INVALID_SETTINGS");
+      await callApi(browserApi.storage.local, "set", {
+        [SETTINGS_KEY]: { ...settings, disabled: false },
+      });
       dispatch({ kind: "REENABLE", nowMonotonic: monotonic() });
       await reconstruct("WAKE");
     }
   }
 
   async function enrollSyntheticOrigin(enroll) {
-    reconstructionVersion += 1;
+    const baseline = beginPrivacyAction();
     const settings = {
       disabled: false,
       enrolledOrigins: enroll ? [CANVAS_ORIGIN] : [],
       schemaVersion: 1,
     };
-    await callApi(browserApi.storage.local, "set", { [SETTINGS_KEY]: settings });
-    await reconstruct("WAKE");
+    try {
+      await callApi(browserApi.storage.local, "set", { [SETTINGS_KEY]: settings });
+      await restoreActivityBaseline(baseline);
+      await reconstruct("WAKE");
+    } catch (error) {
+      await restoreActivityBaseline(baseline);
+      throw error;
+    }
   }
 
   async function deleteActivity() {
-    detachRequestObserver();
+    beginPrivacyAction();
     const readbackEmpty = await enqueueActivity(async () => {
       await callApi(browserApi.storage.local, "remove", ACTIVITY_KEY);
       await callApi(browserApi.alarms, "clear", RETENTION_ALARM);
       const readback = await callApi(browserApi.storage.local, "get", ACTIVITY_KEY);
-      return readback?.[ACTIVITY_KEY] === undefined;
+      const empty = readback?.[ACTIVITY_KEY] === undefined;
+      if (empty) committedActivity = [];
+      return empty;
     });
     dispatch({ kind: "DELETE_ACTIVITY", readbackEmpty, nowMonotonic: monotonic() });
     return readbackEmpty;

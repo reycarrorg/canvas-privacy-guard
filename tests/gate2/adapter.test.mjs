@@ -9,6 +9,19 @@ import { makeFakeBrowser, flushAsyncWork } from "./fake-browser.mjs";
 
 const FIXED_NOW = Date.parse("2026-01-01T12:07:39Z");
 
+function syntheticRequest(overrides = {}) {
+  return {
+    url: "https://canvas.test.invalid/courses/synthetic/file.css",
+    initiator: "https://canvas.test.invalid/courses/synthetic",
+    method: "GET",
+    type: "stylesheet",
+    tabId: 1,
+    parentFrameId: -1,
+    incognito: false,
+    ...overrides,
+  };
+}
+
 test("T-ADAPTER-01 real adapter path reconstructs exact synthetic permissions", async () => {
   const browser = makeFakeBrowser();
   const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
@@ -64,6 +77,121 @@ test("T-ADAPTER-02 raw URL and hostile values are synchronously minimized", () =
     identityOrigin: "https://idp.test.invalid",
     lifecycleState: "ACTIVE_OBSERVE",
   }), null);
+});
+
+test("malformed parent-frame identifiers are never reinterpreted as top-level", () => {
+  const context = {
+    active: true,
+    recognizedSurface: true,
+    canvasOrigin: "https://canvas.test.invalid",
+    optionalOrigin: "https://optional.test.invalid",
+    identityOrigin: "https://idp.test.invalid",
+    lifecycleState: "ACTIVE_OBSERVE",
+  };
+  for (const parentFrameId of [undefined, null, "-1", -2, 0.5, {}, Number.NaN]) {
+    assert.equal(minimizeRawRequest(syntheticRequest({ parentFrameId }), context), null);
+  }
+  assert.notEqual(minimizeRawRequest(syntheticRequest({ parentFrameId: -1 }), context), null);
+  assert.notEqual(minimizeRawRequest(syntheticRequest({ parentFrameId: 0 }), context), null);
+});
+
+test("malformed delivered frame metadata suspends observation and stores nothing", async () => {
+  const browser = makeFakeBrowser();
+  const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
+  await adapter.start();
+  const results = browser.webRequest.onBeforeRequest.emitSync(syntheticRequest({ parentFrameId: undefined }));
+  assert.deepEqual(results, [undefined]);
+  assert.equal(adapter.getState().state, "ASSESSMENT_SAFE");
+  assert.equal(adapter.getState().networkAction, "ALLOW");
+  assert.equal(adapter.isRequestObserverAttached(), false);
+  await flushAsyncWork();
+  assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
+});
+
+test("directly delivered child-frame metadata suspends before destination inspection", async () => {
+  const canary = "EXTERNAL_FRAME_CANARY_5dd3";
+  const browser = makeFakeBrowser();
+  const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
+  await adapter.start();
+  const results = browser.webRequest.onBeforeRequest.emitSync(syntheticRequest({
+    url: `https://external.test.invalid/${canary}`,
+    type: "sub_frame",
+    parentFrameId: 0,
+  }));
+  assert.deepEqual(results, [undefined]);
+  assert.equal(adapter.getState().state, "ASSESSMENT_SAFE");
+  assert.equal(adapter.getState().networkAction, "ALLOW");
+  assert.equal(adapter.isRequestObserverAttached(), false);
+  await flushAsyncWork();
+  assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
+  assert.equal(JSON.stringify(browser.storage.local.data).includes(canary), false);
+});
+
+test("tab updates cannot erase a delivered child-frame assessment lock", async () => {
+  const browser = makeFakeBrowser();
+  const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
+  await adapter.start();
+  assert.deepEqual(browser.webRequest.onBeforeRequest.emitSync(syntheticRequest({
+    type: "sub_frame",
+    parentFrameId: 0,
+  })), [undefined]);
+  await browser.tabs.onUpdated.emit(1, { title: "Synthetic course" }, {
+    id: 1,
+    windowId: 1,
+    incognito: false,
+    url: "https://canvas.test.invalid/courses/synthetic",
+  });
+  assert.equal(adapter.getState().state, "ASSESSMENT_SAFE");
+  assert.equal(adapter.getState().networkAction, "ALLOW");
+  assert.equal(adapter.isRequestObserverAttached(), false);
+  assert.deepEqual(browser.webRequest.onBeforeRequest.emitSync(syntheticRequest()), []);
+});
+
+test("delivered child-frame metadata fences an already-pending activity write", async () => {
+  const browser = makeFakeBrowser();
+  const originalSet = browser.storage.local.set.bind(browser.storage.local);
+  let releaseActivity;
+  let signalActivityEntered;
+  const activityEntered = new Promise((resolve) => { signalActivityEntered = resolve; });
+  browser.storage.local.set = async (values) => {
+    if (values.gate2Activity?.length) {
+      signalActivityEntered();
+      await new Promise((resolve) => { releaseActivity = resolve; });
+    }
+    return originalSet(values);
+  };
+  const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
+  await adapter.start();
+  assert.deepEqual(browser.webRequest.onBeforeRequest.emitSync(syntheticRequest()), [undefined]);
+  await activityEntered;
+  const frameResults = browser.webRequest.onBeforeRequest.emitSync(syntheticRequest({
+    url: "https://external.test.invalid/frame",
+    type: "sub_frame",
+    parentFrameId: 0,
+  }));
+  assert.deepEqual(frameResults, [undefined]);
+  assert.equal(adapter.getState().state, "ASSESSMENT_SAFE");
+  assert.equal(adapter.getState().networkAction, "ALLOW");
+  assert.equal(adapter.isRequestObserverAttached(), false);
+  releaseActivity();
+  await flushAsyncWork();
+  assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
+});
+
+test("suspected top-level assessment request suspends and remains ALLOW", async () => {
+  const browser = makeFakeBrowser();
+  const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
+  await adapter.start();
+  const results = browser.webRequest.onBeforeRequest.emitSync(syntheticRequest({
+    url: "https://canvas.test.invalid/quizzes/synthetic",
+    type: "main_frame",
+  }));
+  assert.deepEqual(results, [undefined]);
+  assert.equal(adapter.getState().state, "ASSESSMENT_SAFE");
+  assert.equal(adapter.getState().networkAction, "ALLOW");
+  assert.equal(adapter.isRequestObserverAttached(), false);
+  await flushAsyncWork();
+  assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
 });
 
 test("unrelated tabs and initiators cannot create categorical activity", async () => {
@@ -132,6 +260,93 @@ test("T-DISABLE-01 T-DISABLE-02 emergency disable persists and re-enable reconst
   await adapter.handleMessage({ command: "TOGGLE_DISABLED" });
   assert.equal(adapter.getState().state, "ACTIVE_OBSERVE");
 });
+
+test("emergency disable detaches before a pending settings write", async () => {
+  const browser = makeFakeBrowser();
+  const originalSet = browser.storage.local.set.bind(browser.storage.local);
+  let releaseSettings;
+  let signalSettingsEntered;
+  const settingsEntered = new Promise((resolve) => { signalSettingsEntered = resolve; });
+  browser.storage.local.set = async (values) => {
+    if (values.gate2Settings?.disabled === true) {
+      signalSettingsEntered();
+      await new Promise((resolve) => { releaseSettings = resolve; });
+    }
+    return originalSet(values);
+  };
+  const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
+  await adapter.start();
+  const disabling = adapter.handleMessage({ command: "TOGGLE_DISABLED" });
+  await settingsEntered;
+  assert.equal(adapter.isRequestObserverAttached(), false);
+  assert.deepEqual(browser.webRequest.onBeforeRequest.emitSync(syntheticRequest()), []);
+  releaseSettings();
+  const response = await disabling;
+  assert.equal(response.ok, true);
+  assert.equal(adapter.getState().state, "DISABLED");
+  assert.equal(adapter.getState().networkAction, "ALLOW");
+  assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
+});
+
+test("enrollment removal detaches before a pending settings write", async () => {
+  const browser = makeFakeBrowser();
+  const originalSet = browser.storage.local.set.bind(browser.storage.local);
+  let releaseSettings;
+  let signalSettingsEntered;
+  const settingsEntered = new Promise((resolve) => { signalSettingsEntered = resolve; });
+  browser.storage.local.set = async (values) => {
+    if (values.gate2Settings?.enrolledOrigins?.length === 0) {
+      signalSettingsEntered();
+      await new Promise((resolve) => { releaseSettings = resolve; });
+    }
+    return originalSet(values);
+  };
+  const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
+  await adapter.start();
+  const removing = adapter.handleMessage({ command: "REMOVE_ENROLLMENT" });
+  await settingsEntered;
+  assert.equal(adapter.isRequestObserverAttached(), false);
+  assert.deepEqual(browser.webRequest.onBeforeRequest.emitSync(syntheticRequest()), []);
+  releaseSettings();
+  const response = await removing;
+  assert.equal(response.ok, true);
+  assert.equal(adapter.getState().state, "NO_PERMISSION");
+  assert.equal(adapter.getState().networkAction, "ALLOW");
+  assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
+});
+
+for (const privacyAction of [
+  { name: "emergency disable", command: "TOGGLE_DISABLED", finalState: "DISABLED" },
+  { name: "enrollment removal", command: "REMOVE_ENROLLMENT", finalState: "NO_PERMISSION" },
+]) {
+  test(`${privacyAction.name} fences an already-pending activity write`, async () => {
+    const browser = makeFakeBrowser();
+    const originalSet = browser.storage.local.set.bind(browser.storage.local);
+    let releaseActivity;
+    let signalActivityEntered;
+    const activityEntered = new Promise((resolve) => { signalActivityEntered = resolve; });
+    browser.storage.local.set = async (values) => {
+      if (values.gate2Activity?.length) {
+        signalActivityEntered();
+        await new Promise((resolve) => { releaseActivity = resolve; });
+      }
+      return originalSet(values);
+    };
+    const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
+    await adapter.start();
+    assert.deepEqual(browser.webRequest.onBeforeRequest.emitSync(syntheticRequest()), [undefined]);
+    await activityEntered;
+    const action = adapter.handleMessage({ command: privacyAction.command });
+    assert.equal(adapter.isRequestObserverAttached(), false);
+    releaseActivity();
+    const response = await action;
+    await flushAsyncWork();
+    assert.equal(response.ok, true);
+    assert.equal(adapter.getState().state, privacyAction.finalState);
+    assert.equal(adapter.getState().networkAction, "ALLOW");
+    assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
+  });
+}
 
 test("T-RETENTION-02 delete-history readback preserves settings", async () => {
   const browser = makeFakeBrowser({ activity: [{ invalid: true }] });
