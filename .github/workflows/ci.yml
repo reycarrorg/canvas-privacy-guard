@@ -16,4 +16,5 @@ jobs:
         uses: actions/checkout@v4
       - name: Run repository policy checks
         run: bash tests/check_repo.sh
-
+      - name: Run deterministic synthetic runtime harness
+        run: node tests/gate2/synthetic-harness.mjs
