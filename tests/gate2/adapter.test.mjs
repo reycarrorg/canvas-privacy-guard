@@ -34,6 +34,55 @@ test("T-ADAPTER-01 real adapter path reconstructs exact synthetic permissions", 
   assert.equal(adapter.isRequestObserverAttached(), false);
 });
 
+test("T-AUTH-01 one exact authenticated Canvas cloud origin can be enrolled", async () => {
+  const canvasOrigin = "https://example-university.instructure.com";
+  const browser = makeFakeBrowser({
+    settings: { schemaVersion: 1, disabled: false, enrolledOrigins: [canvasOrigin] },
+    permissions: [`${canvasOrigin}/*`, "https://optional.test.invalid/*"],
+    tabs: [{
+      id: 7,
+      windowId: 1,
+      incognito: false,
+      url: `${canvasOrigin}/courses/123`,
+    }],
+  });
+  const adapter = createObservationAdapter(browser, "synthetic", {
+    now: () => FIXED_NOW,
+    monotonic: () => 100,
+  });
+  await adapter.start();
+  assert.equal(adapter.getState().state, "ACTIVE_OBSERVE");
+  assert.equal(adapter.isRequestObserverAttached(), true);
+  assert.deepEqual(browser.webRequest.onBeforeRequest.registrations[0], [{ urls: [
+    `${canvasOrigin}/*`,
+    "https://optional.test.invalid/*",
+  ] }]);
+  const response = await adapter.handleMessage({ command: "GET_VIEW" });
+  assert.equal(response.ok, true);
+  assert.equal(response.view.enrolledOrigin, canvasOrigin);
+  assert.equal(response.view.blockingRuleCount, 0);
+});
+
+test("T-AUTH-02 arbitrary authenticated websites cannot be enrolled as Canvas", async () => {
+  const browser = makeFakeBrowser();
+  const adapter = createObservationAdapter(browser, "synthetic", {
+    now: () => FIXED_NOW,
+    monotonic: () => 100,
+  });
+  await adapter.start();
+  const response = await adapter.handleMessage({
+    command: "ENROLL_ORIGIN",
+    origin: "https://accounts.example.com",
+  });
+  assert.equal(response.ok, false);
+  assert.equal(response.code, "ADAPTER_ERROR");
+  assert.deepEqual(browser.storage.local.data.gate2Settings.enrolledOrigins, [
+    "https://canvas.test.invalid",
+  ]);
+  assert.equal(adapter.isRequestObserverAttached(), false);
+  assert.equal(adapter.getState().networkAction, "ALLOW");
+});
+
 test("T-ADAPTER-02 raw URL and hostile values are synchronously minimized", () => {
   const canary = "FORBIDDEN_CANARY_CREDENTIAL_7f3a";
   const raw = {
@@ -178,7 +227,7 @@ test("delivered child-frame metadata fences an already-pending activity write", 
   assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
 });
 
-test("suspected top-level assessment request suspends and remains ALLOW", async () => {
+test("suspected top-level assessment request records one redacted signal, suspends, and remains ALLOW", async () => {
   const browser = makeFakeBrowser();
   const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
   await adapter.start();
@@ -191,7 +240,20 @@ test("suspected top-level assessment request suspends and remains ALLOW", async 
   assert.equal(adapter.getState().networkAction, "ALLOW");
   assert.equal(adapter.isRequestObserverAttached(), false);
   await flushAsyncWork();
-  assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
+  const activity = browser.storage.local.data.gate2Activity ?? [];
+  assert.equal(activity.length, 1);
+  assert.deepEqual({
+    eventClass: activity[0].eventClass,
+    pathClass: activity[0].pathClass,
+    networkAction: activity[0].networkAction,
+    observationAction: activity[0].observationAction,
+  }, {
+    eventClass: "assessment",
+    pathClass: "assessment_suspected",
+    networkAction: "ALLOW",
+    observationAction: "REDACTED_RECORD",
+  });
+  assert.equal(JSON.stringify(activity).includes("/quizzes/synthetic"), false);
 });
 
 test("unrelated tabs and initiators cannot create categorical activity", async () => {

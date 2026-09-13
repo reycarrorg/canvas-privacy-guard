@@ -5,7 +5,11 @@ import test from "node:test";
 
 import { classifyRedacted } from "../../extension/shared/classifier.mjs";
 import { CLASSIFIER_REVISION, EVENT_KINDS, NETWORK_ACTION, STATES } from "../../extension/shared/constants.mjs";
-import { normalizeExactHttpsOrigin, hasExactPermission } from "../../extension/shared/origin.mjs";
+import {
+  normalizeExactHttpsOrigin,
+  hasExactPermission,
+  isSupportedCanvasOrigin,
+} from "../../extension/shared/origin.mjs";
 import { createInitialState, reduceLifecycle } from "../../extension/shared/reducer.mjs";
 import { insertRecord, pruneRecords } from "../../extension/shared/retention.mjs";
 
@@ -39,12 +43,17 @@ test("T-REDUCER-02 exact HTTPS origin and permission cases", () => {
   for (const invalid of [
     "http://canvas.test.invalid",
     "https://*.test.invalid",
-    "https://canvas.test.invalid.evil.invalid",
-    "https://evilcanvas.test.invalid",
     "https://canvas.test.invalid:444",
     "https://canvas.test.invalid/path",
     "https://canvas.test.invalid?query=1",
   ]) assert.equal(normalizeExactHttpsOrigin(invalid), null, invalid);
+  for (const unsupported of [
+    "https://canvas.test.invalid.evil.invalid",
+    "https://evilcanvas.test.invalid",
+    "https://accounts.example.com",
+    "https://instructure.com",
+  ]) assert.equal(isSupportedCanvasOrigin(unsupported), false, unsupported);
+  assert.equal(isSupportedCanvasOrigin("https://example-university.instructure.com"), true);
   assert.equal(hasExactPermission("https://canvas.test.invalid", ["https://canvas.test.invalid/*"]), true);
   assert.equal(hasExactPermission("https://canvas.test.invalid", ["https://*.test.invalid/*"]), false);
 });
@@ -239,6 +248,10 @@ test("T-CLASSIFIER-01 through T-CLASSIFIER-04 protected and ambiguous classes ar
     assert.equal(result.eventClass, eventClass);
     assert.equal(result.networkAction, "ALLOW");
     assert.equal(result.futureRule, null);
+    if (pathClass === "assessment_suspected") {
+      assert.equal(result.observationAction, "REDACTED_RECORD");
+      assert.equal(result.suspendObservation, true);
+    }
   }
   const stale = classifyRedacted({ ...ACTIVE_INPUT, classifierRevision: "stale" });
   assert.deepEqual({ eventClass: stale.eventClass, action: stale.networkAction, observation: stale.observationAction }, {

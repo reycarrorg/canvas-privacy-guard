@@ -18,24 +18,25 @@ async function filesBelow(directory) {
   return nested.flat().sort();
 }
 
-test("T-MANIFEST-01 both MV3 manifests use the exact observation-only capability set", async () => {
+test("T-MANIFEST-01 both MV3 manifests use the explicit authenticated-observation capability set", async () => {
   const deniedPermissions = new Set([
     "webRequestBlocking", "declarativeNetRequest", "declarativeNetRequestWithHostAccess",
     "cookies", "history", "debugger", "proxy", "nativeMessaging", "downloads", "clipboardRead",
-    "clipboardWrite", "desktopCapture", "tabCapture", "activeTab", "scripting",
+    "clipboardWrite", "desktopCapture", "tabCapture", "scripting",
   ]);
   for (const name of ["manifest.firefox.json", "manifest.chromium.json"]) {
     const manifest = JSON.parse(await readFile(path.join(EXTENSION, name), "utf8"));
     assert.equal(manifest.manifest_version, 3);
-    assert.deepEqual(manifest.permissions, ["alarms", "storage", "webRequest"]);
+    assert.deepEqual(manifest.permissions, ["activeTab", "alarms", "storage", "webRequest"]);
     assert.equal(manifest.incognito, "not_allowed");
     for (const permission of manifest.permissions) assert.equal(deniedPermissions.has(permission), false);
     assert.deepEqual(manifest.host_permissions, [
       "https://canvas.test.invalid/*",
       "https://optional.test.invalid/*",
     ]);
+    assert.deepEqual(manifest.optional_host_permissions, ["https://*.instructure.com/*"]);
     assert.equal(JSON.stringify(manifest).includes("<all_urls>"), false);
-    assert.equal(JSON.stringify(manifest).includes("*."), false);
+    assert.equal(manifest.host_permissions.some((origin) => origin.includes("*.")), false);
     assert.equal(Object.hasOwn(manifest, "content_scripts"), false);
     assert.equal(manifest.background.type, "module");
   }
@@ -51,7 +52,9 @@ test("T-NETWORK-01 executable source has no remote endpoint, remote code, or enf
   ]) assert.equal(source.includes(forbidden), false, forbidden);
   const urls = [...source.matchAll(/https?:\/\/[^\s"'`]+/g)].map((match) => match[0]);
   assert.ok(urls.length > 0);
-  assert.ok(urls.every((url) => url.includes(".test.invalid")), JSON.stringify(urls));
+  assert.ok(urls.every((url) => (
+    url.includes(".test.invalid") || url === "https://*.instructure.com/*"
+  )), JSON.stringify(urls));
 });
 
 test("T-PRIVACY-01 shared/output paths prohibit raw interpolation and dynamic logging", async () => {
@@ -69,8 +72,9 @@ test("accessible visible state UI is keyboard reachable and truthful without col
   for (const label of [
     "Emergency disable observation",
     "Delete local activity",
-    "Enroll exact synthetic Canvas origin",
-    "All traffic is allowed. This prototype never blocks or changes network requests.",
+    "Grant access to this Canvas origin",
+    "Active optional blocking rules:",
+    "No optional blocking rule is installed in this preview.",
   ]) assert.ok(html.includes(label), label);
   assert.ok(html.includes('aria-live="polite"'));
   assert.ok(html.includes('aria-label="Scrollable redacted activity table"'));

@@ -5,12 +5,15 @@ const EXACT_SYNTHETIC_ORIGINS = Object.freeze([
   "https://optional.test.invalid",
 ]);
 
-export function normalizeExactHttpsOrigin(value) {
+const CANVAS_CLOUD_SUFFIX = ".instructure.com";
+
+function parseExactHttpsOrigin(value) {
   if (typeof value !== "string" || value.length > 253) return null;
   try {
     const parsed = new URL(value);
     if (
       parsed.protocol !== "https:" ||
+      parsed.port ||
       parsed.hostname.includes("*") ||
       parsed.username ||
       parsed.password ||
@@ -20,15 +23,33 @@ export function normalizeExactHttpsOrigin(value) {
     ) {
       return null;
     }
-    return EXACT_SYNTHETIC_ORIGINS.includes(parsed.origin) ? parsed.origin : null;
+    return parsed;
   } catch {
     return null;
   }
 }
 
+export function normalizeExactHttpsOrigin(value) {
+  return parseExactHttpsOrigin(value)?.origin || null;
+}
+
 export function isPrototypeOrigin(value) {
   const normalized = normalizeExactHttpsOrigin(value);
   return normalized !== null && EXACT_SYNTHETIC_ORIGINS.includes(normalized);
+}
+
+export function isSupportedCanvasOrigin(value) {
+  const parsed = parseExactHttpsOrigin(value);
+  if (!parsed) return false;
+  return (
+    parsed.origin === EXACT_SYNTHETIC_ORIGINS[0] ||
+    (parsed.hostname.endsWith(CANVAS_CLOUD_SUFFIX) && parsed.hostname !== CANVAS_CLOUD_SUFFIX.slice(1))
+  );
+}
+
+export function supportedCanvasOriginFromUrl(value) {
+  const origin = exactOriginFromUrl(value);
+  return origin && isSupportedCanvasOrigin(origin) ? origin : null;
 }
 
 export function exactOriginFromUrl(value) {

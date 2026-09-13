@@ -4,9 +4,11 @@ Canvas Privacy Guard is a public, research-first project for understanding and r
 
 ## Project status
 
-**Gate 2 observation prototype review — synthetic evidence only; no browser installation, production privacy enforcement, or release has been authorized.**
+**Gate 2 authenticated-origin preview review — synthetic runtime evidence plus real-origin source support; no browser installation, production privacy enforcement, or release has been authorized.**
 
-Research Gate 0 selected a cross-browser WebExtension architecture, and accepted Gate 1 provides the threat model and deterministic behavior/privacy contracts. Gate 2 adds an observation-only source prototype, thin Firefox and Chromium Manifest V3 adapters, a visible local UI, and a dependency-free synthetic runtime harness. Every event and lifecycle state remains `ALLOW`; development of traffic-altering behavior remains blocked by the separate authorization boundary in ADR 0002.
+Research Gate 0 selected a cross-browser WebExtension architecture, and accepted Gate 1 provides the threat model and deterministic behavior/privacy contracts. Gate 2 adds an observation-only source prototype, thin Firefox and Chromium Manifest V3 adapters, a visible local UI, and a dependency-free synthetic runtime harness. The September 13 authenticated-origin revision lets the user grant one exact `*.instructure.com` origin from its active tab. Every event and lifecycle state remains `ALLOW`; real traffic-altering behavior remains blocked by the separate authorization boundary in ADR 0002.
+
+The manifest declares `https://*.instructure.com/*` only as an optional permission. Opening the extension on an institution's hosted Canvas tab allows the browser to grant only that exact origin. The extension does not read page content, answers, grades, cookies, headers, or request bodies, and suspected or unknown assessment routes suspend observation. The active optional-blocking rule set is visibly **zero** until a separately hosted endpoint passes the rule-specific evidence gate.
 
 ## Intended outcome
 
@@ -45,6 +47,7 @@ Canvas documentation states that quiz logs are intended to investigate quiz prob
 - [Gate 1 acceptance plan](docs/testing/GATE_1_ACCEPTANCE_PLAN.md)
 - [Gate 2 synthetic evidence](docs/testing/GATE_2_SYNTHETIC_EVIDENCE.md)
 - [Enforcement authorization boundary](docs/adr/0002-enforcement-authorization-boundary.md)
+- [Authenticated Canvas-origin access decision](docs/adr/0003-authenticated-origin-access.md)
 - [Development roadmap](docs/ROADMAP.md)
 - [Security policy](SECURITY.md)
 

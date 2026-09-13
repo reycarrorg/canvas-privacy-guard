@@ -9,7 +9,7 @@
   <body>
     <main aria-labelledby="product-title">
       <header>
-        <p class="gate">Synthetic Gate 2 prototype</p>
+        <p class="gate">Authenticated-origin preview</p>
         <h1 id="product-title">Canvas Privacy Guard</h1>
       </header>
 
@@ -18,9 +18,11 @@
         <h2 id="state-title">Starting safely — allowing traffic</h2>
         <p id="state-detail">Current permissions and tabs are being reconstructed.</p>
         <p id="traffic-statement" class="traffic-statement">
-          All traffic is allowed. This prototype never blocks or changes network requests.
+          Canvas, assessment, sign-in, save, submission, security, accessibility, and uncertain traffic is always allowed. No optional blocking rule is installed in this preview.
         </p>
         <p><span class="label">Reason:</span> <code id="reason-code">RECONCILIATION_REQUIRED</code></p>
+        <p><span class="label">Enrolled origin:</span> <code id="enrolled-origin">None</code></p>
+        <p><span class="label">Active optional blocking rules:</span> <code id="blocking-rule-count">0</code></p>
       </section>
 
       <section aria-labelledby="controls-title">
@@ -28,8 +30,8 @@
         <div class="controls">
           <button id="toggle-disabled" type="button">Emergency disable observation</button>
           <button id="delete-activity" type="button">Delete local activity</button>
-          <button id="enroll-origin" type="button">Enroll exact synthetic Canvas origin</button>
-          <button id="remove-origin" type="button">Remove synthetic enrollment</button>
+          <button id="enroll-origin" type="button">Grant access to this Canvas origin</button>
+          <button id="remove-origin" type="button">Remove Canvas-origin access</button>
         </div>
         <p id="action-result" role="status" aria-live="polite"></p>
       </section>
@@ -44,7 +46,9 @@
               <tr>
                 <th scope="col">Time bucket</th>
                 <th scope="col">Class</th>
+                <th scope="col">Privacy signal</th>
                 <th scope="col">Destination</th>
+                <th scope="col">Request type</th>
                 <th scope="col">Action</th>
               </tr>
             </thead>
@@ -53,7 +57,7 @@
         </div>
       </section>
 
-      <p class="boundary">This prototype does not know whether you are logged in or whether a page is safe for graded use. Do not use it on a real account or assessment.</p>
+      <p class="boundary">Permission is limited at runtime to one exact <code>*.instructure.com</code> origin chosen from the active tab. The extension does not read page content, answers, grades, cookies, headers, or request bodies. Assessment-like or unknown routes pause observation, and no optional blocking rule is installed in this preview.</p>
     </main>
     <script type="module" src="popup.mjs"></script>
   </body>

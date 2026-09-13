@@ -17,6 +17,7 @@ required_files=(
   docs/research/reuse-matrix.md
   docs/adr/0001-platform-selection.md
   docs/adr/0002-enforcement-authorization-boundary.md
+  docs/adr/0003-authenticated-origin-access.md
   docs/security/THREAT_MODEL.md
   docs/architecture/DATA_FLOW.md
   docs/contracts/EVENT_CLASSIFICATION.md
@@ -46,7 +47,7 @@ for required_file in "${required_files[@]}"; do
   }
 done
 
-grep -Fq "Gate 2 observation prototype review" "$repo_root/README.md"
+grep -Fq "Gate 2 authenticated-origin preview review" "$repo_root/README.md"
 grep -Fq "No production version is currently supported" "$repo_root/SECURITY.md"
 grep -Fq "Required Notice: Copyright © 2026 Rolando Carreon" "$repo_root/NOTICE"
 grep -Fq "standards-based cross-browser WebExtension architecture" "$repo_root/docs/adr/0001-platform-selection.md"

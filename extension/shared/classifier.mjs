@@ -63,7 +63,7 @@ export function classifyRedacted(input, localEvidence = Object.freeze({ optional
     input.pathClass === "assessment_suspected" ||
     input.initiatorRelation === "enrolled_child_frame"
   ) {
-    return result("assessment", "SKIP", "ASSESSMENT_EVIDENCE", true);
+    return result("assessment", "REDACTED_RECORD", "ASSESSMENT_EVIDENCE", true);
   }
   if (
     input.pathClass === "authentication" ||

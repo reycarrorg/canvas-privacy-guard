@@ -1,6 +1,6 @@
 # Gate 2 Synthetic Runtime Evidence
 
-Status: **review candidate; source/static and deterministic synthetic-runtime evidence only**
+Status: **review candidate; deterministic synthetic-runtime evidence plus authenticated-origin source support**
 
 Gate 2 implements an observation-only prototype without authorizing installation, live Canvas use, browser-specific compatibility claims, packaging, enforcement, publication, or release. The complete network action vocabulary remains `{ALLOW}`.
 
@@ -8,12 +8,12 @@ Gate 2 implements an observation-only prototype without authorizing installation
 
 The test harness is a dependency-free, in-memory fake browser. It exercises the repository's real browser adapter, browser-neutral reducer and classifier, redacted record path, local retention behavior, and UI view model. It does not launch or install Firefox or Chromium, contact DNS, start a server, authenticate, use a Canvas instance, or process student/course data.
 
-The manifests are intentionally constrained to two exact reserved synthetic origins:
+The manifests retain two exact reserved synthetic origins:
 
 - `https://canvas.test.invalid` for the enrolled synthetic surface;
 - `https://optional.test.invalid` for a separately hosted synthetic observation fixture.
 
-The identity-provider fixture has no manifest host permission. Private/incognito operation is disabled in both manifests. A local alarm wakes the same pruning path at the earliest record expiry. There is no content script, page script, remote endpoint, rule engine, blocking listener, DNR permission, body/header/cookie access, account, sync area, export, or telemetry path.
+The provider-hosted pattern `https://*.instructure.com/*` is declared only as an optional permission. The popup uses the temporary `activeTab` grant to validate that it was opened from a hosted Canvas tab, requests only that exact origin, and sends the normalized origin to the adapter. Arbitrary sites and wildcard enrollment are rejected. The identity-provider fixture has no manifest host permission. Private/incognito operation is disabled in both manifests. A local alarm wakes the same pruning path at the earliest record expiry. There is no content script, page script, remote endpoint, rule engine, blocking listener, DNR permission, body/header/cookie access, account, sync area, export, or outbound telemetry path.
 
 ## Implementation map
 
@@ -23,8 +23,8 @@ The identity-provider fixture has no manifest host permission. Private/incognito
 | Pure classification | `extension/shared/classifier.mjs` accepts closed categories and emits `networkAction: ALLOW` plus no future rule. |
 | Pre-storage minimization | `extension/shared/request-redactor.mjs` handles a raw URL only synchronously and returns categorical fields; identity and unrelated origins are discarded. |
 | Local bounded history | `extension/shared/record.mjs` and `retention.mjs` enforce a closed record, 15-minute buckets, 24-hour expiry, 500 rows, and delete readback. |
-| Browser parity surface | Both MV3 manifests use the same exact hosts and only local `alarms`, `storage`, plus non-blocking `webRequest`; thin browser entry modules call the same adapter. No navigation-wide permission is requested. |
-| Visible control | The popup always states that all traffic is allowed and provides native keyboard-reachable disable, re-enable, enrollment, removal, and delete controls. |
+| Browser parity surface | Both MV3 manifests use the same synthetic hosts, optional hosted-Canvas pattern, `activeTab`, local `alarms`/`storage`, and non-blocking `webRequest`; thin browser entry modules call the same adapter. No content or navigation-wide permission is requested. |
+| Visible control | The popup states the protected traffic classes, exact enrolled origin, and zero active optional rules, and provides native keyboard-reachable disable, re-enable, exact-origin enrollment/removal, and delete controls. |
 
 ## Deterministic receipt result
 
@@ -62,7 +62,7 @@ Both defects were nevertheless blocking Gate 2 contract failures and were repair
 
 A focused review of the same adapter found that emergency disable and enrollment removal detached only after their settings writes, and that an activity write already in progress could complete after either privacy action. The repair now detaches synchronously before the first asynchronous settings operation, advances an observation generation, and restores the last fully committed activity baseline after all older queued work drains. Deterministic held-write tests cover both actions at the settings boundary and at an already-pending activity write.
 
-The adapter also validates `parentFrameId` as an integer no smaller than `-1`. Malformed frame metadata and any delivered child-frame metadata immediately enter `ASSESSMENT_SAFE`, detach observation, fence earlier queued work, store no activity, and still return `undefined` with `networkAction: ALLOW`. Suspected top-level assessment paths follow the same suspension boundary, and later same-tab update events cannot clear the in-memory assessment lock.
+The adapter also validates `parentFrameId` as an integer no smaller than `-1`. Malformed frame metadata and any delivered child-frame metadata immediately enter `ASSESSMENT_SAFE`, detach observation, fence earlier queued work, store no activity, and still return `undefined` with `networkAction: ALLOW`. A suspected top-level assessment path stores one minimized categorical `assessment_suspected` signal, then follows the same suspension boundary; the raw path is never stored, and later same-tab update events cannot clear the in-memory assessment lock.
 
 This is adapter-level evidence only. With the exact two-host permission contract, no content script, and no navigation-wide permission, the prototype cannot prove that a real browser will deliver a child navigation to an origin outside those two hosts or reconstruct still-present frames after a service-worker restart. The direct child-frame injection test proves behavior if such metadata reaches the adapter; it does **not** prove external-subframe discovery in Firefox or Chromium. Therefore useful `ACTIVE_OBSERVE` with complete external-frame awareness remains a browser-runtime design blocker, not a verified Gate 2 capability.
 
@@ -78,6 +78,7 @@ Verified by this evidence tier:
 - synchronous detach and pending-write fencing for emergency disable and enrollment removal;
 - fail-closed handling of malformed and directly delivered child-frame metadata at the adapter boundary;
 - static Firefox/Chromium manifest parity and capability denial;
+- exact hosted-Canvas origin acceptance, unrelated-site rejection, and runtime filter construction in the fake browser;
 - accessible/truthful UI source properties;
 - deterministic in-memory request/response receipt equivalence.
 
@@ -86,7 +87,7 @@ Not verified by this evidence tier:
 - actual Firefox or Chromium service-worker, permission, event, storage, popup, suspension, and browser-version behavior;
 - discovery of external-origin child frames under the intentionally exact host-permission set;
 - an installed extension, packaged archive, signed build, store submission, or update path;
-- any self-owned Canvas, institution, normal profile, real account, course, assessment, or production use;
+- any self-owned Canvas, institution, normal profile, real account, course, assessment, or production use, despite source support for an exact hosted origin;
 - Gate 3 enforcement, real-world safety, compatibility, release readiness, or secure erasure from browser/OS backups.
 
 Those higher-tier gates require separate authority and must not be inferred from a passing synthetic harness, pushed branch, or merged pull request.

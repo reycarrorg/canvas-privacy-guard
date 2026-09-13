@@ -1,20 +1,23 @@
 {
   "manifest_version": 3,
-  "name": "Canvas Privacy Guard — Synthetic Gate 2",
-  "version": "0.2.0",
-  "description": "Observation-only synthetic prototype. All traffic is allowed.",
+  "name": "Canvas Privacy Guard — Authenticated-Origin Preview",
+  "version": "0.3.0",
+  "description": "Local, redacted Canvas request observation. Core and uncertain traffic is always allowed.",
   "incognito": "not_allowed",
-  "permissions": ["alarms", "storage", "webRequest"],
+  "permissions": ["activeTab", "alarms", "storage", "webRequest"],
   "host_permissions": [
     "https://canvas.test.invalid/*",
     "https://optional.test.invalid/*"
+  ],
+  "optional_host_permissions": [
+    "https://*.instructure.com/*"
   ],
   "background": {
     "service_worker": "background/firefox.mjs",
     "type": "module"
   },
   "action": {
-    "default_title": "Canvas Privacy Guard — allowing all traffic",
+    "default_title": "Canvas Privacy Guard — inspect this Canvas origin",
     "default_popup": "ui/popup.html"
   },
   "browser_specific_settings": {

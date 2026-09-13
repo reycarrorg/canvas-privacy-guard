@@ -48,7 +48,6 @@ def main() -> int:
         "user-local macOS path": r"/Users/[^/\s]+/",
         "user-local Windows path": r"(?i)\b[A-Z]:\\Users\\[^\\\s]+\\",
         "real UTSA domain": r"(?i)\b(?:utsa\.edu|my\.utsa\.edu)\b",
-        "real Canvas host": r"(?i)\b(?:instructure\.com|canvaslms\.com)\b",
         "prohibited implementation license": r"(?i)\b(?:GNU (?:AFFERO )?GENERAL PUBLIC LICENSE|Mozilla Public License)\b",
     }
     for label, pattern in forbidden_patterns.items():
@@ -75,7 +74,10 @@ def main() -> int:
     for candidate in files_below(ROOT / "extension"):
         text = candidate.read_text(encoding="utf-8")
         for match in re.finditer(r"https?://[^\s\"'`<>]+", text):
-            if ".test.invalid" not in match.group(0):
+            if (
+                ".test.invalid" not in match.group(0)
+                and match.group(0) != "https://*.instructure.com/*"
+            ):
                 fail(f"remote endpoint found in {candidate.relative_to(ROOT)}")
 
     dependency_names = {
@@ -101,13 +103,15 @@ def main() -> int:
 
     for manifest_name in ("manifest.firefox.json", "manifest.chromium.json"):
         manifest = json.loads((ROOT / "extension" / manifest_name).read_text(encoding="utf-8"))
-        if manifest["permissions"] != ["alarms", "storage", "webRequest"]:
+        if manifest["permissions"] != ["activeTab", "alarms", "storage", "webRequest"]:
             fail(f"unexpected permissions in {manifest_name}")
         if manifest["host_permissions"] != [
             "https://canvas.test.invalid/*",
             "https://optional.test.invalid/*",
         ]:
             fail(f"unexpected host permissions in {manifest_name}")
+        if manifest.get("optional_host_permissions") != ["https://*.instructure.com/*"]:
+            fail(f"unexpected optional host permissions in {manifest_name}")
 
     notice = (ROOT / "NOTICE").read_text(encoding="utf-8")
     if "Required Notice: Copyright © 2026 Rolando Carreon. All rights reserved." not in notice:

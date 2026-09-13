@@ -5,7 +5,7 @@ import { NETWORK_ACTION } from "./constants.mjs";
 import {
   exactPermissionPattern,
   hasExactPermission,
-  isPrototypeOrigin,
+  isSupportedCanvasOrigin,
   normalizeExactHttpsOrigin,
   PROTOTYPE_ORIGINS,
 } from "./origin.mjs";
@@ -18,7 +18,7 @@ import { makeViewModel } from "./view-model.mjs";
 const SETTINGS_KEY = "gate2Settings";
 const ACTIVITY_KEY = "gate2Activity";
 const RETENTION_ALARM = "gate2-retention";
-const CANVAS_ORIGIN = PROTOTYPE_ORIGINS[0];
+const SYNTHETIC_CANVAS_ORIGIN = PROTOTYPE_ORIGINS[0];
 const OPTIONAL_ORIGIN = PROTOTYPE_ORIGINS[1];
 const IDENTITY_ORIGIN = "https://idp.test.invalid";
 
@@ -70,8 +70,9 @@ function validatedSettings(raw) {
   if (!raw || typeof raw !== "object" || raw.schemaVersion !== 1 || typeof raw.disabled !== "boolean") {
     return null;
   }
-  if (!Array.isArray(raw.enrolledOrigins) || !raw.enrolledOrigins.every(isPrototypeOrigin)) return null;
+  if (!Array.isArray(raw.enrolledOrigins) || !raw.enrolledOrigins.every(isSupportedCanvasOrigin)) return null;
   const normalized = [...new Set(raw.enrolledOrigins.map(normalizeExactHttpsOrigin))].sort();
+  if (normalized.length > 1 || normalized.some((origin) => origin === null)) return null;
   return { disabled: raw.disabled, enrolledOrigins: normalized, schemaVersion: 1 };
 }
 
@@ -125,7 +126,7 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
     });
   }
 
-  function suspendSurface(key, assessment) {
+  function suspendSurface(key, assessment, terminalRecord = null) {
     const surface = key ? coreState.surfaces[key] : null;
     if (!surface || surface.phase !== "recognized") {
       enterFault("ADAPTER_ERROR");
@@ -133,13 +134,19 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
     }
     const baseline = structuredClone(committedActivity);
     observationGeneration += 1;
+    const generation = observationGeneration;
     detachRequestObserver();
     dispatch({
       kind: "FRAME_CLASS_CHANGED",
       surface: { ...surface, assessment },
       nowMonotonic: monotonic(),
     });
-    void restoreActivityBaseline(baseline).catch(() => enterFault("STORAGE_ERROR"));
+    void restoreActivityBaseline(baseline)
+      .then(() => {
+        if (!terminalRecord) return undefined;
+        return enqueueActivity(() => persistRecord(terminalRecord, generation, { allowAfterSuspend: true }));
+      })
+      .catch(() => enterFault("STORAGE_ERROR"));
   }
 
   function detachRequestObserver() {
@@ -155,9 +162,16 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
       return;
     }
     if (!requestObserverAttached) {
+      const canvasPattern = enrolledOrigins.length === 1
+        ? exactPermissionPattern(enrolledOrigins[0])
+        : null;
+      if (!canvasPattern) {
+        enterFault("ADAPTER_ERROR");
+        return;
+      }
       browserApi.webRequest.onBeforeRequest.addListener(
         onBeforeRequest,
-        { urls: [exactPermissionPattern(CANVAS_ORIGIN), exactPermissionPattern(OPTIONAL_ORIGIN)] },
+        { urls: [canvasPattern, exactPermissionPattern(OPTIONAL_ORIGIN)] },
       );
       requestObserverAttached = true;
     }
@@ -196,7 +210,7 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
     await callApi(browserApi.alarms, "create", RETENTION_ALARM, { when: Math.min(...deadlines) });
   }
 
-  async function persistRecord(record, generation) {
+  async function persistRecord(record, generation, { allowAfterSuspend = false } = {}) {
     if (!isValidRecord(record) || record.networkAction !== NETWORK_ACTION) {
       enterFault("SCHEMA_ERROR");
       return;
@@ -204,7 +218,10 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
     try {
       if (generation !== observationGeneration) return;
       const activity = await readActivity();
-      if (generation !== observationGeneration || !coreState.observationEligible) return;
+      if (
+        generation !== observationGeneration ||
+        (!allowAfterSuspend && !coreState.observationEligible)
+      ) return;
       const next = insertRecord(activity, record, now());
       if (generation !== observationGeneration) return;
       await callApi(browserApi.storage.local, "set", { [ACTIVITY_KEY]: next });
@@ -236,7 +253,7 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
       redacted = minimizeRawRequest(rawEvent, {
         active: coreState.observationEligible,
         recognizedSurface,
-        canvasOrigin: CANVAS_ORIGIN,
+        canvasOrigin: enrolledOrigins[0],
         optionalOrigin: OPTIONAL_ORIGIN,
         identityOrigin: IDENTITY_ORIGIN,
         lifecycleState: coreState.state,
@@ -250,7 +267,10 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
     const decision = classifyRedacted(redacted, { optionalCandidateAccepted: true });
     if (decision.suspendObservation) {
       const key = rawEvent && Number.isInteger(rawEvent.tabId) ? `tab:${rawEvent.tabId}` : null;
-      suspendSurface(key, "suspected");
+      const terminalRecord = decision.observationAction === "REDACTED_RECORD"
+        ? makeRecord(redacted, decision, browserFamily, now())
+        : null;
+      suspendSurface(key, "suspected", terminalRecord);
       return undefined;
     }
     if (decision.observationAction === "REDACTED_RECORD") {
@@ -279,8 +299,8 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
       await readActivity();
       const permissions = await callApi(browserApi.permissions, "getAll");
       const permissionOrigins = Array.isArray(permissions?.origins) ? permissions.origins : [];
-      const enrollmentValid = enrolledOrigins.length === 1 && enrolledOrigins[0] === CANVAS_ORIGIN;
-      const permissionValid = enrollmentValid && hasExactPermission(CANVAS_ORIGIN, permissionOrigins);
+      const enrollmentValid = enrolledOrigins.length === 1 && isSupportedCanvasOrigin(enrolledOrigins[0]);
+      const permissionValid = enrollmentValid && hasExactPermission(enrolledOrigins[0], permissionOrigins);
       const tabs = await callApi(browserApi.tabs, "query", {});
       const surfaces = (Array.isArray(tabs) ? tabs : [])
         .map((tab) => surfaceFromTab(tab, enrolledOrigins, monotonic()))
@@ -353,11 +373,15 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
     }
   }
 
-  async function enrollSyntheticOrigin(enroll) {
+  async function setEnrolledOrigin(origin) {
     const baseline = beginPrivacyAction();
+    const normalized = origin === null ? null : normalizeExactHttpsOrigin(origin);
+    if (normalized !== null && !isSupportedCanvasOrigin(normalized)) {
+      throw new Error("UNSUPPORTED_CANVAS_ORIGIN");
+    }
     const settings = {
       disabled: false,
-      enrolledOrigins: enroll ? [CANVAS_ORIGIN] : [],
+      enrolledOrigins: normalized ? [normalized] : [],
       schemaVersion: 1,
     };
     try {
@@ -390,25 +414,29 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
       if (message.command === "GET_VIEW") {
         await activityQueue;
         const activity = await readActivity();
-        return { ok: true, view: makeViewModel(coreState, activity) };
+        return { ok: true, view: makeViewModel(coreState, activity, enrolledOrigins[0] || null) };
       }
       if (message.command === "TOGGLE_DISABLED") {
         await setDisabled(coreState.state !== "DISABLED");
       } else if (message.command === "DELETE_ACTIVITY") {
         if (!(await deleteActivity())) return { ok: false, code: "DELETE_READBACK_FAILED" };
-      } else if (message.command === "ENROLL_SYNTHETIC") {
-        await enrollSyntheticOrigin(true);
+      } else if (message.command === "ENROLL_ORIGIN") {
+        await setEnrolledOrigin(message.origin);
       } else if (message.command === "REMOVE_ENROLLMENT") {
-        await enrollSyntheticOrigin(false);
+        await setEnrolledOrigin(null);
       } else {
         return { ok: false, code: "UNKNOWN_COMMAND" };
       }
       await activityQueue;
       const activity = await readActivity();
-      return { ok: true, view: makeViewModel(coreState, activity) };
+      return { ok: true, view: makeViewModel(coreState, activity, enrolledOrigins[0] || null) };
     } catch {
       enterFault("ADAPTER_ERROR");
-      return { ok: false, code: "ADAPTER_ERROR", view: makeViewModel(coreState, []) };
+      return {
+        ok: false,
+        code: "ADAPTER_ERROR",
+        view: makeViewModel(coreState, [], enrolledOrigins[0] || null),
+      };
     }
   }
 
@@ -454,6 +482,6 @@ export function createObservationAdapter(browserApi, browserFamily, options = {}
     handleTabChanged,
     getState: () => structuredClone(coreState),
     isRequestObserverAttached: () => requestObserverAttached,
-    constants: Object.freeze({ CANVAS_ORIGIN, OPTIONAL_ORIGIN, IDENTITY_ORIGIN }),
+    constants: Object.freeze({ SYNTHETIC_CANVAS_ORIGIN, OPTIONAL_ORIGIN, IDENTITY_ORIGIN }),
   });
 }

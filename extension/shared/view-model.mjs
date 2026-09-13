@@ -3,7 +3,7 @@
 const LABELS = Object.freeze({
   DISABLED: ["Off — user disabled", "Observation is off until you explicitly re-enable it."],
   INITIALIZING_ALLOW: ["Starting safely — allowing traffic", "Current permissions and tabs are being reconstructed."],
-  NO_PERMISSION: ["Permission required", "The exact synthetic Canvas origin permission is missing."],
+  NO_PERMISSION: ["Permission required", "Choose one exact Canvas origin and grant access from its open tab."],
   IDLE: ["Idle — no enrolled Canvas tab", "Observation is off because no recognized surface is open."],
   CANDIDATE: ["Checking origin", "A navigation is awaiting an exact committed-origin check."],
   SSO_TRANSIT: ["Paused for sign-in", "Identity-provider traffic is not accessed or observed."],
@@ -13,7 +13,7 @@ const LABELS = Object.freeze({
   STOPPING: ["Stopping safely", "Volatile observation state is being discarded."],
 });
 
-export function makeViewModel(coreState, activity = []) {
+export function makeViewModel(coreState, activity = [], enrolledOrigin = null) {
   const [title, detail] = LABELS[coreState?.state] || LABELS.UNCERTAIN_ALLOW;
   return Object.freeze({
     title: coreState?.state === "ACTIVE_OBSERVE"
@@ -23,8 +23,10 @@ export function makeViewModel(coreState, activity = []) {
     state: coreState?.state || "UNCERTAIN_ALLOW",
     reasonCode: coreState?.reasonCode || "UNKNOWN_STATE",
     observationRunning: coreState?.state === "ACTIVE_OBSERVE",
-    trafficStatement: "All traffic is allowed. This prototype never blocks or changes network requests.",
+    trafficStatement: "Canvas, assessment, sign-in, save, submission, security, accessibility, and uncertain traffic is always allowed. No optional blocking rule is installed in this preview.",
     disableLabel: coreState?.state === "DISABLED" ? "Re-enable observation" : "Emergency disable observation",
+    enrolledOrigin: typeof enrolledOrigin === "string" ? enrolledOrigin : null,
+    blockingRuleCount: 0,
     activity: Array.isArray(activity) ? activity : [],
   });
 }
