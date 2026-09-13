@@ -1,0 +1,55 @@
+:root {
+  color-scheme: light dark;
+  font: 14px/1.45 system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  min-width: 360px;
+  max-width: 440px;
+  background: Canvas;
+  color: CanvasText;
+}
+
+main { padding: 1rem; }
+h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+h2 { font-size: 1.05rem; }
+.gate, .state-code, .label { font-weight: 700; }
+.gate { margin: 0; }
+.status-card {
+  border: 2px solid currentColor;
+  border-radius: 0.6rem;
+  padding: 0.8rem;
+}
+.state-code { letter-spacing: 0.04em; }
+.traffic-statement {
+  border-left: 0.35rem solid currentColor;
+  padding-left: 0.65rem;
+  font-weight: 700;
+}
+.controls { display: grid; gap: 0.55rem; }
+button {
+  min-height: 2.75rem;
+  border: 2px solid currentColor;
+  border-radius: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-weight: 650;
+  background: ButtonFace;
+  color: ButtonText;
+}
+button:hover { text-decoration: underline; }
+button:focus-visible,
+.table-wrap:focus-visible {
+  outline: 4px solid Highlight;
+  outline-offset: 3px;
+}
+.table-wrap {
+  max-height: 12rem;
+  overflow: auto;
+  border: 1px solid currentColor;
+}
+table { width: 100%; border-collapse: collapse; }
+caption { padding: 0.4rem; text-align: left; font-weight: 700; }
+th, td { border: 1px solid currentColor; padding: 0.35rem; text-align: left; }
+.boundary { font-weight: 650; }

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Canvas Privacy Guard</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main aria-labelledby="product-title">
+      <header>
+        <p class="gate">Synthetic Gate 2 prototype</p>
+        <h1 id="product-title">Canvas Privacy Guard</h1>
+      </header>
+
+      <section class="status-card" aria-labelledby="state-title" aria-live="polite">
+        <p id="state-code" class="state-code">INITIALIZING_ALLOW</p>
+        <h2 id="state-title">Starting safely — allowing traffic</h2>
+        <p id="state-detail">Current permissions and tabs are being reconstructed.</p>
+        <p id="traffic-statement" class="traffic-statement">
+          All traffic is allowed. This prototype never blocks or changes network requests.
+        </p>
+        <p><span class="label">Reason:</span> <code id="reason-code">RECONCILIATION_REQUIRED</code></p>
+      </section>
+
+      <section aria-labelledby="controls-title">
+        <h2 id="controls-title">Local controls</h2>
+        <div class="controls">
+          <button id="toggle-disabled" type="button">Emergency disable observation</button>
+          <button id="delete-activity" type="button">Delete local activity</button>
+          <button id="enroll-origin" type="button">Enroll exact synthetic Canvas origin</button>
+          <button id="remove-origin" type="button">Remove synthetic enrollment</button>
+        </div>
+        <p id="action-result" role="status" aria-live="polite"></p>
+      </section>
+
+      <section aria-labelledby="activity-title">
+        <h2 id="activity-title">Redacted local activity</h2>
+        <p>Records use 15-minute time buckets and contain categories only. They expire within 24 hours and are capped at 500 rows.</p>
+        <div class="table-wrap" tabindex="0" aria-label="Scrollable redacted activity table">
+          <table>
+            <caption id="activity-caption">No local activity records</caption>
+            <thead>
+              <tr>
+                <th scope="col">Time bucket</th>
+                <th scope="col">Class</th>
+                <th scope="col">Destination</th>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
+            <tbody id="activity-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p class="boundary">This prototype does not know whether you are logged in or whether a page is safe for graded use. Do not use it on a real account or assessment.</p>
+    </main>
+    <script type="module" src="popup.mjs"></script>
+  </body>
+</html>

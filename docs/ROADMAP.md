@@ -35,11 +35,13 @@ Exit evidence: threat model, data flow, classifier, metadata schema, lifecycle c
 
 Entry is blocked until Gate 1 is accepted on `main` and the exact criteria in the [Gate 1 acceptance plan](testing/GATE_1_ACCEPTANCE_PLAN.md#gate-1-exit-and-exact-gate-2-entry-criteria) are satisfied.
 
-- Implement Canvas-only activation and deactivation.
-- Show local state and classified destinations without modifying traffic.
-- Validate that no credentials, answers, course content, or identifiers enter logs.
+- [x] Implement exact-origin synthetic activation and deactivation with browser-neutral lifecycle state.
+- [x] Show local state and classified destinations without modifying traffic.
+- [x] Validate that no credentials, answers, course content, or identifiers enter logs or local activity.
 
 Exit evidence: deterministic tests plus synthetic runtime demonstration.
+
+**Gate 2 review status:** the dependency-free fake-browser harness exercises the real adapter, reducer, classifier, retention, and UI view-model path and produces byte-equivalent receipts for 24 protected synthetic flows. The Firefox and Chromium MV3 manifests and adapters are source/static evidence only. No extension was installed or run in a browser, so browser-specific runtime compatibility and packaging remain unverified higher-tier gates. See the [Gate 2 synthetic evidence](testing/GATE_2_SYNTHETIC_EVIDENCE.md).
 
 ## Gate 3 — Optional-analytics minimization prototype
 

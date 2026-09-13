@@ -25,8 +25,18 @@ required_files=(
   docs/contracts/metadata-record.schema.json
   docs/contracts/invariants.json
   docs/testing/GATE_1_ACCEPTANCE_PLAN.md
+  docs/testing/GATE_2_SYNTHETIC_EVIDENCE.md
+  extension/manifest.firefox.json
+  extension/manifest.chromium.json
+  extension/shared/reducer.mjs
+  extension/shared/classifier.mjs
+  extension/shared/browser-adapter.mjs
+  extension/ui/popup.html
   tests/check_markdown_links.py
+  tests/check_gate2_policy.py
   tests/validate_contracts.py
+  tests/run_gate2.sh
+  tests/gate2/synthetic-harness.mjs
 )
 
 for required_file in "${required_files[@]}"; do
@@ -36,7 +46,7 @@ for required_file in "${required_files[@]}"; do
   }
 done
 
-grep -Fq "Gate 1 contract review" "$repo_root/README.md"
+grep -Fq "Gate 2 observation prototype review" "$repo_root/README.md"
 grep -Fq "No production version is currently supported" "$repo_root/SECURITY.md"
 grep -Fq "Required Notice: Copyright © 2026 Rolando Carreon" "$repo_root/NOTICE"
 grep -Fq "standards-based cross-browser WebExtension architecture" "$repo_root/docs/adr/0001-platform-selection.md"
@@ -57,5 +67,7 @@ fi
 
 python3 "$repo_root/tests/check_markdown_links.py"
 python3 "$repo_root/tests/validate_contracts.py"
+python3 "$repo_root/tests/check_gate2_policy.py"
+"${CPG_NODE:-node}" --test "$repo_root/tests/gate2"/*.test.mjs
 
 echo "repository policy checks passed"

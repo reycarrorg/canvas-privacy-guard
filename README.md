@@ -4,9 +4,9 @@ Canvas Privacy Guard is a public, research-first project for understanding and r
 
 ## Project status
 
-**Gate 1 contract review — no browser extension or production privacy enforcement has been released.**
+**Gate 2 observation prototype review — synthetic evidence only; no browser installation, production privacy enforcement, or release has been authorized.**
 
-Research Gate 0 selected a cross-browser WebExtension architecture. Gate 1 now provides a threat model and deterministic behavior/privacy contracts for review. Gate 1 contains no extension scaffold or runtime behavior, Gate 2 remains observation-only, and development of traffic-altering behavior remains blocked by the separate authorization boundary in ADR 0002.
+Research Gate 0 selected a cross-browser WebExtension architecture, and accepted Gate 1 provides the threat model and deterministic behavior/privacy contracts. Gate 2 adds an observation-only source prototype, thin Firefox and Chromium Manifest V3 adapters, a visible local UI, and a dependency-free synthetic runtime harness. Every event and lifecycle state remains `ALLOW`; development of traffic-altering behavior remains blocked by the separate authorization boundary in ADR 0002.
 
 ## Intended outcome
 
@@ -43,6 +43,7 @@ Canvas documentation states that quiz logs are intended to investigate quiz prob
 - [Machine-checkable metadata schema](docs/contracts/metadata-record.schema.json)
 - [Gate 1 invariants](docs/contracts/invariants.json)
 - [Gate 1 acceptance plan](docs/testing/GATE_1_ACCEPTANCE_PLAN.md)
+- [Gate 2 synthetic evidence](docs/testing/GATE_2_SYNTHETIC_EVIDENCE.md)
 - [Enforcement authorization boundary](docs/adr/0002-enforcement-authorization-boundary.md)
 - [Development roadmap](docs/ROADMAP.md)
 - [Security policy](SECURITY.md)
