@@ -48,6 +48,7 @@ Exit evidence: deterministic tests plus synthetic runtime demonstration.
 - [x] Permit an explicit runtime grant for one exact hosted `*.instructure.com` origin selected from the active tab.
 - [x] Keep the provider wildcard in optional permissions only; installation alone grants no access to real Canvas tenants.
 - [x] Expose the exact enrolled origin and active optional-rule count in the local UI.
+- [x] Reconcile a tenant switch to one stored enrollment and one exact runtime grant, with rollback or visible residual-permission status on failure.
 - [x] Preserve zero content scripts, zero body/header/cookie access, assessment suspension, and universal `ALLOW`.
 - [x] Document the separate access-versus-enforcement decision in [ADR 0003](adr/0003-authenticated-origin-access.md).
 

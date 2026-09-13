@@ -77,7 +77,23 @@ export function makeFakeBrowser({
     },
     permissions: {
       origins: [...permissions],
+      requestCalls: [],
+      removeCalls: [],
       getAll: async () => ({ origins: [...api.permissions.origins] }),
+      request: async (details) => {
+        api.permissions.requestCalls.push(structuredClone(details));
+        for (const origin of details?.origins || []) {
+          if (!api.permissions.origins.includes(origin)) api.permissions.origins.push(origin);
+        }
+        return true;
+      },
+      remove: async (details) => {
+        api.permissions.removeCalls.push(structuredClone(details));
+        const before = api.permissions.origins.length;
+        const removed = new Set(details?.origins || []);
+        api.permissions.origins = api.permissions.origins.filter((origin) => !removed.has(origin));
+        return api.permissions.origins.length !== before;
+      },
       onAdded: new FakeEvent(),
       onRemoved: new FakeEvent(),
     },

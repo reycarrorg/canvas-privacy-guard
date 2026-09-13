@@ -67,6 +67,8 @@ def main() -> int:
         "innerHTML",
         "eval(",
         "new Function(",
+        "allowAfterSuspend",
+        "terminalRecord",
     ):
         if token in executable:
             fail(f"prohibited executable capability found: {token}")

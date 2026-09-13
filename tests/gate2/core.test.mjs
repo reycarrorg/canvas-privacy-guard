@@ -6,6 +6,7 @@ import test from "node:test";
 import { classifyRedacted } from "../../extension/shared/classifier.mjs";
 import { CLASSIFIER_REVISION, EVENT_KINDS, NETWORK_ACTION, STATES } from "../../extension/shared/constants.mjs";
 import {
+  exactSupportedCanvasOriginFromPermissionPattern,
   normalizeExactHttpsOrigin,
   hasExactPermission,
   isSupportedCanvasOrigin,
@@ -56,6 +57,11 @@ test("T-REDUCER-02 exact HTTPS origin and permission cases", () => {
   assert.equal(isSupportedCanvasOrigin("https://example-university.instructure.com"), true);
   assert.equal(hasExactPermission("https://canvas.test.invalid", ["https://canvas.test.invalid/*"]), true);
   assert.equal(hasExactPermission("https://canvas.test.invalid", ["https://*.test.invalid/*"]), false);
+  assert.equal(
+    exactSupportedCanvasOriginFromPermissionPattern("https://example-university.instructure.com/*"),
+    "https://example-university.instructure.com",
+  );
+  assert.equal(exactSupportedCanvasOriginFromPermissionPattern("https://*.instructure.com/*"), null);
 });
 
 test("T-REDUCER-01 every lifecycle event and state remains ALLOW-only", () => {
@@ -249,7 +255,7 @@ test("T-CLASSIFIER-01 through T-CLASSIFIER-04 protected and ambiguous classes ar
     assert.equal(result.networkAction, "ALLOW");
     assert.equal(result.futureRule, null);
     if (pathClass === "assessment_suspected") {
-      assert.equal(result.observationAction, "REDACTED_RECORD");
+      assert.equal(result.observationAction, "SKIP");
       assert.equal(result.suspendObservation, true);
     }
   }

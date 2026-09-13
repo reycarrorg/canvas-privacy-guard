@@ -83,6 +83,37 @@ test("T-AUTH-02 arbitrary authenticated websites cannot be enrolled as Canvas", 
   assert.equal(adapter.getState().networkAction, "ALLOW");
 });
 
+test("startup reconciliation removes only residual exact hosted-Canvas grants", async () => {
+  const alpha = "https://alpha-university.instructure.com";
+  const beta = "https://beta-university.instructure.com";
+  const browser = makeFakeBrowser({
+    settings: { schemaVersion: 1, disabled: false, enrolledOrigins: [beta] },
+    permissions: [
+      "https://canvas.test.invalid/*",
+      "https://optional.test.invalid/*",
+      "https://*.instructure.com/*",
+      `${alpha}/*`,
+      `${beta}/*`,
+    ],
+    tabs: [],
+  });
+  const adapter = createObservationAdapter(browser, "synthetic", {
+    now: () => FIXED_NOW,
+    monotonic: () => 100,
+  });
+  await adapter.start();
+  assert.equal(browser.permissions.origins.includes(`${alpha}/*`), false);
+  assert.equal(browser.permissions.origins.includes(`${beta}/*`), true);
+  assert.equal(browser.permissions.origins.includes("https://*.instructure.com/*"), false);
+  assert.equal(browser.permissions.origins.includes("https://canvas.test.invalid/*"), true);
+  assert.equal(browser.permissions.origins.includes("https://optional.test.invalid/*"), true);
+  const view = await adapter.handleMessage({ command: "GET_VIEW" });
+  assert.equal(view.ok, true);
+  assert.equal(view.view.enrolledOrigin, beta);
+  assert.equal(view.view.residualPermissionCount, 0);
+  assert.equal(adapter.getState().networkAction, "ALLOW");
+});
+
 test("T-ADAPTER-02 raw URL and hostile values are synchronously minimized", () => {
   const canary = "FORBIDDEN_CANARY_CREDENTIAL_7f3a";
   const raw = {
@@ -196,38 +227,55 @@ test("tab updates cannot erase a delivered child-frame assessment lock", async (
   assert.deepEqual(browser.webRequest.onBeforeRequest.emitSync(syntheticRequest()), []);
 });
 
-test("delivered child-frame metadata fences an already-pending activity write", async () => {
-  const browser = makeFakeBrowser();
-  const originalSet = browser.storage.local.set.bind(browser.storage.local);
-  let releaseActivity;
-  let signalActivityEntered;
-  const activityEntered = new Promise((resolve) => { signalActivityEntered = resolve; });
-  browser.storage.local.set = async (values) => {
-    if (values.gate2Activity?.length) {
-      signalActivityEntered();
-      await new Promise((resolve) => { releaseActivity = resolve; });
-    }
-    return originalSet(values);
-  };
-  const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
-  await adapter.start();
-  assert.deepEqual(browser.webRequest.onBeforeRequest.emitSync(syntheticRequest()), [undefined]);
-  await activityEntered;
-  const frameResults = browser.webRequest.onBeforeRequest.emitSync(syntheticRequest({
-    url: "https://external.test.invalid/frame",
-    type: "sub_frame",
-    parentFrameId: 0,
-  }));
-  assert.deepEqual(frameResults, [undefined]);
-  assert.equal(adapter.getState().state, "ASSESSMENT_SAFE");
-  assert.equal(adapter.getState().networkAction, "ALLOW");
-  assert.equal(adapter.isRequestObserverAttached(), false);
-  releaseActivity();
-  await flushAsyncWork();
-  assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
-});
+for (const assessmentTransition of [
+  { name: "malformed frame", request: { parentFrameId: undefined } },
+  {
+    name: "delivered child frame",
+    request: {
+      url: "https://external.test.invalid/frame",
+      type: "sub_frame",
+      parentFrameId: 0,
+    },
+  },
+  {
+    name: "suspected assessment route",
+    request: {
+      url: "https://canvas.test.invalid/quizzes/synthetic",
+      type: "main_frame",
+    },
+  },
+]) {
+  test(`${assessmentTransition.name} fences an already-pending activity write`, async () => {
+    const browser = makeFakeBrowser();
+    const originalSet = browser.storage.local.set.bind(browser.storage.local);
+    let releaseActivity;
+    let signalActivityEntered;
+    const activityEntered = new Promise((resolve) => { signalActivityEntered = resolve; });
+    browser.storage.local.set = async (values) => {
+      if (values.gate2Activity?.length) {
+        signalActivityEntered();
+        await new Promise((resolve) => { releaseActivity = resolve; });
+      }
+      return originalSet(values);
+    };
+    const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
+    await adapter.start();
+    assert.deepEqual(browser.webRequest.onBeforeRequest.emitSync(syntheticRequest()), [undefined]);
+    await activityEntered;
+    const transitionResults = browser.webRequest.onBeforeRequest.emitSync(
+      syntheticRequest(assessmentTransition.request),
+    );
+    assert.deepEqual(transitionResults, [undefined]);
+    assert.equal(adapter.getState().state, "ASSESSMENT_SAFE");
+    assert.equal(adapter.getState().networkAction, "ALLOW");
+    assert.equal(adapter.isRequestObserverAttached(), false);
+    releaseActivity();
+    await flushAsyncWork();
+    assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
+  });
+}
 
-test("suspected top-level assessment request records one redacted signal, suspends, and remains ALLOW", async () => {
+test("suspected top-level assessment request stores no row, suspends, and remains ALLOW", async () => {
   const browser = makeFakeBrowser();
   const adapter = createObservationAdapter(browser, "synthetic", { now: () => FIXED_NOW, monotonic: () => 100 });
   await adapter.start();
@@ -240,20 +288,7 @@ test("suspected top-level assessment request records one redacted signal, suspen
   assert.equal(adapter.getState().networkAction, "ALLOW");
   assert.equal(adapter.isRequestObserverAttached(), false);
   await flushAsyncWork();
-  const activity = browser.storage.local.data.gate2Activity ?? [];
-  assert.equal(activity.length, 1);
-  assert.deepEqual({
-    eventClass: activity[0].eventClass,
-    pathClass: activity[0].pathClass,
-    networkAction: activity[0].networkAction,
-    observationAction: activity[0].observationAction,
-  }, {
-    eventClass: "assessment",
-    pathClass: "assessment_suspected",
-    networkAction: "ALLOW",
-    observationAction: "REDACTED_RECORD",
-  });
-  assert.equal(JSON.stringify(activity).includes("/quizzes/synthetic"), false);
+  assert.deepEqual(browser.storage.local.data.gate2Activity ?? [], []);
 });
 
 test("unrelated tabs and initiators cannot create categorical activity", async () => {

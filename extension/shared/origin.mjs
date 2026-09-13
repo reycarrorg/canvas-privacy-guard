@@ -6,6 +6,7 @@ const EXACT_SYNTHETIC_ORIGINS = Object.freeze([
 ]);
 
 const CANVAS_CLOUD_SUFFIX = ".instructure.com";
+export const CANVAS_CLOUD_OPTIONAL_PATTERN = "https://*.instructure.com/*";
 
 function parseExactHttpsOrigin(value) {
   if (typeof value !== "string" || value.length > 253) return null;
@@ -66,6 +67,12 @@ export function exactOriginFromUrl(value) {
 export function exactPermissionPattern(origin) {
   const normalized = normalizeExactHttpsOrigin(origin);
   return normalized ? `${normalized}/*` : null;
+}
+
+export function exactSupportedCanvasOriginFromPermissionPattern(value) {
+  if (typeof value !== "string" || !value.endsWith("/*")) return null;
+  const origin = normalizeExactHttpsOrigin(value.slice(0, -2));
+  return origin !== null && isSupportedCanvasOrigin(origin) ? origin : null;
 }
 
 export function hasExactPermission(origin, permissionOrigins) {
