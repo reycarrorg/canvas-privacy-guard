@@ -41,6 +41,7 @@ required_files=(
   tests/validate_contracts.py
   tests/run_gate2.sh
   tests/gate2/synthetic-harness.mjs
+  tests/gate2/popup.test.mjs
 )
 
 for required_file in "${required_files[@]}"; do

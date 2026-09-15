@@ -157,25 +157,65 @@ async function previewAuditLog() {
   }
 }
 
-function saveReviewedAuditLog() {
+// saveReviewedAuditLog is async: at save time it re-issues GET_AUDIT_EXPORT and
+// compares the fresh canonical JSON to the exact previewed payload string.
+// If they differ (adapter-side activity, lifecycle, or retention revision changed)
+// the stale pending payload is consumed and cleared, the download is refused, and
+// the user is required to preview again. If they match, the Blob is built from the
+// exact preview string (byte-identical to what was reviewed). One-shot consumption
+// occurs on every save attempt regardless of outcome.
+async function saveReviewedAuditLog() {
   if (!pendingAuditExport) {
     text("action-result", "Nothing was saved: preview the current audit export first.");
     return;
   }
+  // One-shot: capture and immediately consume the pending payload so it cannot be reused.
+  const payload = pendingAuditExport;
+  clearAuditPreview();
+
+  // Adapter-side freshness check: re-issue GET_AUDIT_EXPORT and compare canonical JSON.
+  let freshJson;
   try {
-    const blob = new Blob([pendingAuditExport.json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
+    const fresh = await runtime.sendMessage({ command: "GET_AUDIT_EXPORT" });
+    if (!fresh?.ok || !fresh?.exportData) {
+      text("action-result", `Export validation failed: ${fresh?.code || "UNKNOWN_ERROR"}. Preview again before saving.`);
+      return;
+    }
+    freshJson = `${JSON.stringify(fresh.exportData, null, 2)}\n`;
+  } catch {
+    text("action-result", "Export validation failed: ADAPTER_ERROR. Preview again before saving.");
+    return;
+  }
+
+  // If the adapter-side state has changed the payload since preview, refuse the download.
+  if (freshJson !== payload.json) {
+    text("action-result", "Audit data changed since preview. Preview again to review the current export before saving.");
+    return;
+  }
+
+  // Payload is fresh and byte-identical to what was reviewed. Proceed with download.
+  // The object URL is managed in try/finally so revocation is guaranteed even if
+  // anchor.click() throws.
+  let url = null;
+  try {
+    const blob = new Blob([payload.json], { type: "application/json" });
+    url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = pendingAuditExport.filename;
+    anchor.download = payload.filename;
     anchor.click();
-    URL.revokeObjectURL(url);
+    // Truthful wording: we can only confirm that a download was requested,
+    // not that the user accepted it or that the file was written to disk.
     text(
       "action-result",
-      `Saved ${pendingAuditExport.recordCount} reviewed local record${pendingAuditExport.recordCount === 1 ? "" : "s"} to JSON.`,
+      `Download of ${payload.recordCount} reviewed local record${payload.recordCount === 1 ? "" : "s"} requested. Save location depends on your browser settings.`,
     );
   } catch {
     text("action-result", "Reviewed export was not saved: LOCAL_SAVE_ERROR");
+  } finally {
+    // Deferred revocation: safe cleanup after the browser has processed the
+    // click event and queued the download. Guaranteed exactly once.
+    if (url !== null) setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 }
 
